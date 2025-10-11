@@ -21,6 +21,7 @@ namespace UGTLive
                 "Ollama" => new OllamaTranslationService(),
                 "ChatGPT" => new ChatGptTranslationService(),
                 "Google Translate" => new GoogleTranslateService(),
+                "OpenRouter" => new OpenRouterService(),
                 _ => new GeminiTranslationService() // Default to Gemini if unknown
             };
         }
@@ -38,6 +39,7 @@ namespace UGTLive
                 "Ollama" => new OllamaTranslationService(),
                 "ChatGPT" => new ChatGptTranslationService(),
                 "Google Translate" => new GoogleTranslateService(),
+                "OpenRouter" => new OpenRouterService(),
                 _ => throw new ArgumentException($"Unknown translation service: {serviceName}")
             };
         }

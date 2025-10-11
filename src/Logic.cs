@@ -392,12 +392,6 @@ namespace UGTLive
                         }
                     }
                     
-                    // Cập nhật ChatBox với bản dịch mới
-                    if (ChatBoxWindow.Instance != null)
-                    {
-                        ChatBoxWindow.Instance.UpdateChatHistory();
-                    }
-                    
                     // Cập nhật MonitorWindow
                     MonitorWindow.Instance.RefreshOverlays();
                 }
@@ -525,7 +519,6 @@ namespace UGTLive
                                                 double remainingSettleTime = settleTime - (DateTime.Now - _lastChangeTime).TotalSeconds;
                                                 Console.WriteLine($"Content stable for {(DateTime.Now - _lastChangeTime).TotalSeconds:F2}s, waiting {remainingSettleTime:F2}s more...");
                                                 MonitorWindow.Instance.ShowTranslationStatus(true); // Keep showing "Settling..."
-                                                ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                                 return; 
                                             }
                                         }
@@ -544,7 +537,6 @@ namespace UGTLive
                                         if (MainWindow.Instance.GetIsStarted())
                                         {
                                             MonitorWindow.Instance.ShowTranslationStatus(true); // Show "Settling..."
-                                            ChatBoxWindow.Instance?.ShowTranslationStatus(true);
                                         }
                                         
                                         // Check again for max settle time to ensure it's enforced even with changing content
@@ -649,12 +641,6 @@ namespace UGTLive
                                         {
                                             // Only add to chat history if translation is disabled
                                             _lastChangeTime = DateTime.MinValue;
-                                            MainWindow.Instance.AddTranslationToHistory(combinedText, "");
-                                            
-                                            if (ChatBoxWindow.Instance != null)
-                                            {
-                                                ChatBoxWindow.Instance.OnTranslationWasAdded(combinedText, "");
-                                            }
                                         }
                                     }
                                     
@@ -1669,6 +1655,22 @@ namespace UGTLive
                         }
                     }
                 }
+                else if (currentService == "OpenRouter")
+                {
+                    string cleanedResponse = translationResponse;
+                    int jsonStart = cleanedResponse.IndexOf('{');
+                    int jsonEnd = cleanedResponse.LastIndexOf('}');
+
+                    if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart)
+                    {
+                        cleanedResponse = cleanedResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                    }
+
+                    // The response should be the JSON we requested
+                    using JsonDocument customDoc = JsonDocument.Parse(cleanedResponse);
+                    ProcessCustomJsonResponse(customDoc.RootElement);
+                    return;
+                }
                 else if (currentService == "Google Translate")
                 {
                     // Xử lý phản hồi từ Google Translate
@@ -1688,6 +1690,59 @@ namespace UGTLive
             }
         }
 
+        private void ProcessCustomJsonResponse(JsonElement root)
+        {
+            try
+            {
+                if (root.TryGetProperty("japanese", out JsonElement japaneseElement))
+                {
+                    string fullJapaneseText = japaneseElement.GetString() ?? "";
+                    // We can display this full text somewhere if needed.
+                    // For now, we'll focus on the chunks.
+
+                    if (root.TryGetProperty("chunks", out JsonElement chunksElement) && chunksElement.ValueKind == JsonValueKind.Array)
+                    {
+                        ClearAllTextObjects();
+
+                        foreach (JsonElement chunk in chunksElement.EnumerateArray())
+                        {
+                            if (chunk.TryGetProperty("jp", out JsonElement jpElement) &&
+                                chunk.TryGetProperty("en", out JsonElement enElement))
+                            {
+                                string jpText = jpElement.GetString() ?? "";
+                                string enText = enElement.GetString() ?? "";
+                                string romajiText = "";
+                                if (chunk.TryGetProperty("romaji", out JsonElement romajiElement))
+                                {
+                                    romajiText = romajiElement.GetString() ?? "";
+                                }
+
+                                if (!string.IsNullOrEmpty(jpText))
+                                {
+                                    // Create a new TextObject for each chunk
+                                    TextObject textObject = new TextObject(jpText, 0, 0, 0, 0, null, null);
+                                    textObject.TextTranslated = enText;
+                                    textObject.TextRomaji = romajiText;
+                                    textObject.ID = "text_" + GetNextTextID();
+                                    _textObjects.Add(textObject);
+                                }
+                            }
+                        }
+
+                        // Now, update the ChatBoxWindow with the new text objects
+                        if (ChatBoxWindow.Instance != null)
+                        {
+                            ChatBoxWindow.Instance.UpdateWithTextObjects(_textObjects, fullJapaneseText);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing custom JSON response: {ex.Message}");
+            }
+        }
+
         //!Convert textobjects to json and send for translation
         public async Task TranslateTextObjectsAsync()
         {
@@ -1695,12 +1750,6 @@ namespace UGTLive
             {
                 // Show translation status at the beginning
                 MonitorWindow.Instance.ShowTranslationStatus(false);
-                
-                // Also show translation status in ChatBoxWindow if it's open
-                if (ChatBoxWindow.Instance != null)
-                {
-                    ChatBoxWindow.Instance.ShowTranslationStatus(false);
-                }
                 
                 if (_textObjects.Count == 0)
                 {
@@ -1792,6 +1841,8 @@ namespace UGTLive
                 // This would log the post-processed response, which we don't need
                 // LogManager.Instance.LogLlmReply(translationResponse);
 
+                Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
+
                 ProcessTranslatedJSON(translationResponse);
               
             }
@@ -1805,14 +1856,97 @@ namespace UGTLive
             OnFinishedThings(true);
         }
 
-        public string GetGeminiApiKey()
+        //! Send image for translation
+        public async Task TranslateImageAsync(string base64Image, string prompt)
         {
-            return ConfigManager.Instance.GetGeminiApiKey();
+            try
+            {
+                // Show translation status
+                MonitorWindow.Instance.ShowTranslationStatus(false);
+
+                SetWaitingForTranslationToFinish(true);
+
+                // Create translation service
+                ITranslationService translationService = TranslationServiceFactory.CreateService();
+                string currentService = ConfigManager.Instance.GetCurrentTranslationService();
+
+                // Log the request
+                LogManager.Instance.LogLlmRequest(prompt, "Image data (base64)");
+
+                _translationStopwatch.Restart();
+
+                // Call the translation service with the image data
+                // The base64 image is passed in the 'text' parameter
+                string? translationResponse = await translationService.TranslateAsync(base64Image, prompt);
+
+                _translationStopwatch.Stop();
+                Console.WriteLine($"Translation took {_translationStopwatch.ElapsedMilliseconds} ms");
+
+                if (string.IsNullOrEmpty(translationResponse))
+                {
+                    Console.WriteLine($"Translation failed with {currentService} - empty response");
+                    OnFinishedThings(true);
+                    return;
+                }
+
+                // Process the response
+                Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
+                ProcessTranslatedJSON(translationResponse);
+            }
+            catch (Exception ex)
+            { 
+                Console.WriteLine($"Error translating image: {ex.Message}");
+                OnFinishedThings(true);
+            }
+            finally
+            {
+                OnFinishedThings(true);
+            }
         }
-     
+
+        public async void GenerateFlashcardAsync(string japanese, string english, string romaji, string fullSentence)
+        {
+            try
+            {
+                // 1. Get the prompt and game name
+                string flashcardPrompt = ConfigManager.Instance.GetFlashcardPrompt();
+                string gameName = ConfigManager.Instance.GetGameName();
+
+                // 2. Construct the final prompt
+                string finalPrompt = flashcardPrompt
+                    .Replace("{word}", japanese)
+                    .Replace("{translation}", english)
+                    .Replace("{romaji}", romaji)
+                    .Replace("{context_sentence}", fullSentence)
+                    .Replace("{game_name}", gameName);
+
+                Console.WriteLine($"--- Sending Flashcard Prompt to LLM ---\n{finalPrompt}");
+
+                // 3. Make the LLM call
+                ITranslationService translationService = new OpenRouterService();
+
+                string? flashcardResponse = await translationService.TranslateAsync("", finalPrompt); // Text is empty as prompt is self-contained
+
+                // 4. Append the response
+                if (ChatBoxWindow.Instance != null && !string.IsNullOrEmpty(flashcardResponse))
+                {
+                    ChatBoxWindow.Instance.AppendToFlashcardOutput(flashcardResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating flashcard: {ex.Message}");
+            }
+        }
+
         public string GetLlmPrompt()
         {
             return ConfigManager.Instance.GetLlmPrompt();
+        }
+
+        public string GetGeminiApiKey()
+        {
+            return ConfigManager.Instance.GetGeminiApiKey();
         }
 
         private string? GetSourceLanguage()
@@ -1846,22 +1980,7 @@ namespace UGTLive
         // Get previous context based on configuration settings
         private List<string> GetPreviousContext()
         {
-            // Check if context is enabled
-            int maxContextPieces = ConfigManager.Instance.GetMaxContextPieces();
-            if (maxContextPieces <= 0)
-            {
-                return new List<string>(); // Empty list if context is disabled
-            }
-            
-            int minContextSize = ConfigManager.Instance.GetMinContextSize();
-           
-            // Get context from ChatBoxWindow's history
-            if (ChatBoxWindow.Instance != null)
-            {
-                return ChatBoxWindow.Instance.GetRecentOriginalTexts(maxContextPieces, minContextSize);
-               
-            }
-            
+            // This feature was tied to the old chat history and is currently disabled.
             return new List<string>();
         }
     }

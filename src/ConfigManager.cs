@@ -19,12 +19,15 @@ namespace UGTLive
         private readonly string _ollamaConfigFilePath;
         private readonly string _chatgptConfigFilePath;
         private readonly string _googleTranslateConfigFilePath;
+        private readonly string _openRouterConfigFilePath; // Added for OpenRouter
         private readonly Dictionary<string, string> _configValues;
-        private string _currentTranslationService = "Gemini"; // Default to Gemini
+        private string _currentTranslationService = "OpenRouter"; // Default to OpenRouter
 
         // Config keys
         public const string GEMINI_API_KEY = "gemini_api_key";
+        public const string OPENROUTER_API_KEY = "openrouter_api_key"; // Added for OpenRouter
         public const string GEMINI_MODEL = "gemini_model";
+        public const string OPENROUTER_MODEL = "openrouter_model";
         public const string TRANSLATION_SERVICE = "translation_service";
         public const string OCR_METHOD = "ocr_method";
         public const string OLLAMA_URL = "ollama_url";
@@ -124,6 +127,7 @@ namespace UGTLive
             _ollamaConfigFilePath = Path.Combine(appDirectory, "ollama_config.txt");
             _chatgptConfigFilePath = Path.Combine(appDirectory, "chatgpt_config.txt");
             _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
+            _openRouterConfigFilePath = Path.Combine(appDirectory, "openrouter_config.txt"); // Added for OpenRouter
             
             Console.WriteLine($"Config file path: {_configFilePath}");
             Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
@@ -235,6 +239,8 @@ namespace UGTLive
         {
             // Set default values based on current config.txt
             _configValues[GEMINI_API_KEY] = "<your API key here>";
+            _configValues[OPENROUTER_API_KEY] = "<your API key here>";
+            _configValues[OPENROUTER_MODEL] = "google/gemini-2.5-flash-preview-09-2025";
             _configValues[AUTO_SIZE_TEXT_BLOCKS] = "true";
             _configValues[CHATBOX_FONT_FAMILY] = "Segoe UI";
             _configValues[CHATBOX_FONT_SIZE] = "15";
@@ -247,7 +253,7 @@ namespace UGTLive
             _configValues[CHATBOX_BACKGROUND_OPACITY] = "0.35";
             _configValues[CHATBOX_WINDOW_OPACITY] = "1";
             _configValues[CHATBOX_MIN_TEXT_SIZE] = "2";
-            _configValues[TRANSLATION_SERVICE] = "Gemini";
+            _configValues[TRANSLATION_SERVICE] = "OpenRouter";
             _configValues[OLLAMA_URL] = "http://localhost";
             _configValues[OLLAMA_PORT] = "11434";
             _configValues[OCR_METHOD] = "EasyOCR";
@@ -456,6 +462,35 @@ namespace UGTLive
             SaveConfig();
         }
         
+        // Get OpenRouter API key
+        public string GetOpenRouterApiKey()
+        {
+            return GetValue(OPENROUTER_API_KEY);
+        }
+
+        // Set OpenRouter API key
+        public void SetOpenRouterApiKey(string apiKey)
+        {
+            _configValues[OPENROUTER_API_KEY] = apiKey;
+            SaveConfig();
+        }
+
+        // Get/Set OpenRouter Model
+        public string GetOpenRouterModel()
+        {
+            return GetValue(OPENROUTER_MODEL, "google/gemini-2.5-flash-preview-09-2025");
+        }
+
+        public void SetOpenRouterModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[OPENROUTER_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"OpenRouter model set to: {model}");
+            }
+        }
+        
         // Get/Set Ollama URL
         public string GetOllamaUrl()
         {
@@ -520,7 +555,7 @@ namespace UGTLive
         // Set current translation service
         public void SetTranslationService(string service)
         {
-            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "Google Translate")
+            if (service == "Gemini" || service == "Ollama" || service == "ChatGPT" || service == "Google Translate" || service == "OpenRouter")
             {
                 _currentTranslationService = service;
                 _configValues[TRANSLATION_SERVICE] = service;
@@ -569,6 +604,8 @@ namespace UGTLive
                 string defaultGeminiPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
                 string defaultOllamaPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
                 string defaultChatGptPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
+                string defaultOpenRouterPrompt = "Extract all Japanese text from this image of a visual novel dialog box. Provide the full extracted Japanese text, and break it into chunks of words or phrases (e.g., individual kanji, compounds, or short phrases). For each chunk, provide a word-for-word literal English translation. Output strictly in JSON: {\"japanese\": \"full text here\", \"chunks\": [{\"jp\": \"chunk1\", \"en\": \"translation1\"}, {\"jp\": \"chunk2\", \"en\": \"translation2\"}, ...]}";
+
                 
                 // Check and create Gemini config file
                 if (!File.Exists(_geminiConfigFilePath))
@@ -593,6 +630,15 @@ namespace UGTLive
                     File.WriteAllText(_chatgptConfigFilePath, chatgptContent);
                     Console.WriteLine("Created default ChatGPT config file");
                 }
+
+                // Check and create OpenRouter config file
+                if (!File.Exists(_openRouterConfigFilePath))
+                {
+                    string openRouterContent = $"<llm_prompt_multi_start>\n{defaultOpenRouterPrompt}\n<llm_prompt_multi_end>";
+                    File.WriteAllText(_openRouterConfigFilePath, openRouterContent);
+                    Console.WriteLine("Created default OpenRouter config file");
+                }
+
                 
                 // Google Translate doesn't use prompts, so no need to create config file
             }
@@ -606,6 +652,66 @@ namespace UGTLive
         public string GetLlmPrompt()
         {
             return GetServicePrompt(_currentTranslationService);
+        }
+
+        public string GetFlashcardPrompt()
+        {
+            try
+            {
+                string appDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app");
+                if (!Directory.Exists(appDir))
+                {
+                    Directory.CreateDirectory(appDir);
+                }
+                string filePath = Path.Combine(appDir, "flashcard_prompt.txt");
+                if (File.Exists(filePath))
+                {
+                    string content = File.ReadAllText(filePath);
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        return content;
+                    }
+                }
+                string def = GetDefaultFlashcardPrompt();
+                File.WriteAllText(filePath, def);
+                return def;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading flashcard prompt: {ex.Message}");
+                return GetDefaultFlashcardPrompt();
+            }
+        }
+
+        private string GetDefaultFlashcardPrompt()
+        {
+            return "You are a flashcard generator for language learning. Given {word} (Japanese), its {translation} (English), optional {romaji}, and a {context_sentence} from the game {game_name}, create a concise Anki-style flashcard JSON with fields: {\"front\": <JP word>, \"back\": <EN meaning>, \"reading\": <romaji or empty>, \"sentence\": <context sentence>, \"notes\": <brief nuance or grammar>. Keep responses strictly as minified JSON.";
+        }
+
+        public bool SaveFlashcardPrompt(string prompt)
+        {
+            try
+            {
+                string appDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app");
+                if (!Directory.Exists(appDir))
+                {
+                    Directory.CreateDirectory(appDir);
+                }
+                string filePath = Path.Combine(appDir, "flashcard_prompt.txt");
+                File.WriteAllText(filePath, prompt ?? "");
+                Console.WriteLine($"Saved flashcard prompt ({(prompt?.Length ?? 0)} chars)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving flashcard prompt: {ex.Message}");
+                return false;
+            }
+        }
+
+        public string GetGameName()
+        {
+            return GetValue("game_name", "My Game");
         }
         
         // Get prompt for specific translation service
@@ -629,6 +735,9 @@ namespace UGTLive
                     break;
                 case "ChatGPT":
                     filePath = _chatgptConfigFilePath;
+                    break;
+                case "OpenRouter":
+                    filePath = _openRouterConfigFilePath;
                     break;
                 default:
                     filePath = _geminiConfigFilePath;
@@ -682,6 +791,9 @@ namespace UGTLive
                     break;
                 case "ChatGPT":
                     filePath = _chatgptConfigFilePath;
+                    break;
+                case "OpenRouter":
+                    filePath = _openRouterConfigFilePath;
                     break;
                 default:
                     filePath = _geminiConfigFilePath;

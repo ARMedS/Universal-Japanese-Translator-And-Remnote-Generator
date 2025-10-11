@@ -314,10 +314,10 @@ namespace UGTLive
                 ConfigManager.Instance.SaveConfig();
                 
                 // Apply changes to ChatBoxWindow if it's open
-                if (ChatBoxWindow.Instance != null)
-                {
-                    ChatBoxWindow.Instance.ApplyConfigurationStyling();
-                }
+                //if (ChatBoxWindow.Instance != null)
+                //{
+                //    ChatBoxWindow.Instance.ApplyConfigurationStyling();
+                //}
                 
                 // Close the window
                 this.DialogResult = true;

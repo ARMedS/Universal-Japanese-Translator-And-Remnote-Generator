@@ -81,21 +81,6 @@ namespace UGTLive
         private bool isSelectingChatBoxArea = false;
         private bool _chatBoxEventsAttached = false;
         
-        // Keep translation history even when ChatBox is closed
-        private List<TranslationEntry> _translationHistory = new List<TranslationEntry>();
-        
-        // Accessor for ChatBoxWindow to get the translation history
-        public List<TranslationEntry> GetTranslationHistory()
-        {
-            return _translationHistory;
-        }
-        
-        // Method to clear translation history
-        public void ClearTranslationHistory()
-        {
-            _translationHistory.Clear();
-            Console.WriteLine("Translation history cleared from MainWindow");
-        }
        
   
         //allow this to be accesible through an "Instance" variable
@@ -286,11 +271,7 @@ namespace UGTLive
             // Initialize helper
             helper = new WindowInteropHelper(this);
 
-            // Setup timer for continuous capture
-            _captureTimer = new DispatcherTimer();
-            _captureTimer.Interval = TimeSpan.FromSeconds(1 / 60.0f);
-            _captureTimer.Tick += OnUpdateTick;
-            _captureTimer.Start();
+            // The capture timer has been removed to switch to single-shot capture.
             
             // Initial update of capture rectangle and setup after window is loaded
             this.Loaded += MainWindow_Loaded;
@@ -356,6 +337,9 @@ namespace UGTLive
         
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            // Load or create the system prompt
+            LoadSystemPrompt();
+
             // Update capture rectangle
             UpdateCaptureRect();
            
@@ -388,9 +372,6 @@ namespace UGTLive
             
             // Set OCR method in this window (MainWindow)
             SetOcrMethod(savedOcrMethod);
-            
-            // Subscribe to translation events
-            Logic.Instance.TranslationCompleted += Logic_TranslationCompleted;
             
             // Make sure monitor window is shown on startup to the right of the main window
             if (!MonitorWindow.Instance.IsVisible)
@@ -511,13 +492,7 @@ namespace UGTLive
             }
         }
 
-        //!Main loop
 
-        private void OnUpdateTick(object? sender, EventArgs e)
-        {
-          
-            PerformCapture();
-        }
 
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -532,29 +507,8 @@ namespace UGTLive
        
         private void OnStartButtonToggleClicked(object sender, RoutedEventArgs e)
         {
-            System.Windows.Controls.Button btn = (System.Windows.Controls.Button)sender;
-
-            if (isStarted)
-            {
-                Logic.Instance.ResetHash();
-                isStarted = false;
-                btn.Content = "Start";
-                btn.Background = new SolidColorBrush(Color.FromRgb(20, 180, 20)); // Green
-                //erase any active text objects
-                Logic.Instance.ClearAllTextObjects();
-                MonitorWindow.Instance.HideTranslationStatus();
-                // Also hide the ChatBox "Waiting for translation" indicator (if visible)
-                ChatBoxWindow.Instance?.HideTranslationStatus();
-            }
-            else
-            {
-                isStarted = true;
-                btn.Content = "Stop";
-                UpdateCaptureRect();
-                SetOCRCheckIsWanted(true);
-                btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
-
-            }
+            // Perform a single capture when the button is clicked or Shift+S is pressed
+            PerformCapture();
         }
 
         
@@ -765,32 +719,24 @@ namespace UGTLive
                         MonitorWindow.Instance.UpdateScreenshotFromBitmap(bitmap);
                     }
 
-                    //do we actually want to do OCR right now?  
-                    if (!GetIsStarted()) return;
-
-                    if (!GetOCRCheckIsWanted())
-                    {
-                        return;
-                    }
-
+                    // The capture is now triggered on-demand, so we can proceed.
                     Stopwatch stopwatch = new Stopwatch();
                     stopwatch.Start();
 
-                    SetOCRCheckIsWanted(false);
+                    // Convert bitmap to base64 to send to the image-to-text API
+                    string base64Image;
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        bitmap.Save(ms, ImageFormat.Png);
+                        byte[] byteImage = ms.ToArray();
+                        base64Image = Convert.ToBase64String(byteImage);
+                    }
 
-                    // Check if we're using Windows OCR - if so, process in memory without saving
-                    if (GetSelectedOcrMethod() == "Windows OCR")
-                    {
-                        string sourceLanguage = (sourceLanguageComboBox?.SelectedItem as ComboBoxItem)?.Content?.ToString()!;
-                        Logic.Instance.ProcessWithWindowsOCR(bitmap, sourceLanguage);
-                    }
-                    else
-                    {
-                        //write saving bitmap to log
-                        Console.WriteLine($"Saving bitmap to {outputPath}");
-                        bitmap.Save(outputPath, ImageFormat.Png);
-                        Logic.Instance.SendImageToEasyOCR(outputPath);
-                    }
+                    // Get the system prompt from the loaded prompt.txt file
+                    string systemPrompt = GetSystemPrompt();
+
+                    // Asynchronously call the new logic to handle the image translation
+                    _ = Logic.Instance.TranslateImageAsync(base64Image, systemPrompt);
 
                     stopwatch.Stop();
                 }
@@ -1211,129 +1157,6 @@ namespace UGTLive
             chatBoxWindow.Show();
             isChatBoxVisible = true;
             chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red when active
-            
-            // The ChatBox will get its data from MainWindow.GetTranslationHistory()
-            // No need to manually load entries, just trigger an update
-            if (chatBoxWindow != null)
-            {
-                Console.WriteLine($"Updating ChatBox with {_translationHistory.Count} translation entries");
-                chatBoxWindow.UpdateChatHistory();
-            }
-        }
-        
-        // **** MODIFIED: Returns the ID of the added/updated entry ****
-        public string AddTranslationToHistory(string originalText, string translatedText)
-        {
-            string entryId = string.Empty;
-            bool entryUpdated = false;
-
-            try
-            {
-                // Check if the new text is essentially the same as the last entry's original text
-                // and if the new translated text is non-empty (avoid overwriting translation with empty)
-                if (_translationHistory.Count > 0 && !string.IsNullOrEmpty(translatedText))
-                {
-                    var lastEntry = _translationHistory[_translationHistory.Count - 1]; // More direct access with List
-                    
-                    // Check if original texts match (case-insensitive, trimmed)
-                    if (string.Equals(lastEntry.OriginalText?.Trim(), originalText?.Trim(), StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Update existing entry ONLY if the new translation is different
-                        // This prevents unnecessary updates if only the transcript arrived
-                        if (!string.Equals(lastEntry.TranslatedText?.Trim(), translatedText?.Trim(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            lastEntry.TranslatedText = translatedText;
-                            lastEntry.Timestamp = DateTime.Now;
-                            Console.WriteLine($"Updated last translation entry ID: {lastEntry.Id}");
-                            entryId = lastEntry.Id;
-                            entryUpdated = true;
-                        }
-                        else
-                        {
-                             // Texts match, but translation is the same. Return existing ID but mark as not needing UI refresh yet.
-                             entryId = lastEntry.Id;
-                             // entryUpdated remains false - UI doesn't need immediate full refresh
-                             Console.WriteLine($"Skipping update, translation same for ID: {lastEntry.Id}");
-                        }
-                    }
-                }
-
-                if (!entryUpdated && !string.IsNullOrEmpty(originalText)) // If not updated, it's a new entry (and original text isn't empty)
-                {
-                    var entry = new TranslationEntry
-                    {
-                        Id = Guid.NewGuid().ToString(), // Assign new ID
-                        OriginalText = originalText,
-                        TranslatedText = translatedText,
-                        Timestamp = DateTime.Now
-                    };
-                    _translationHistory.Add(entry); // Use Add for List
-                    entryId = entry.Id; // Store the new ID
-                    entryUpdated = true; // Mark that we've handled this (new entry requires UI refresh)
-                    Console.WriteLine($"Added new translation entry ID: {entryId}");
-                }
-
-                // Keep history size limited
-                int maxHistorySize = ConfigManager.Instance.GetChatBoxHistorySize();
-                while (_translationHistory.Count > maxHistorySize)
-                {
-                    _translationHistory.RemoveAt(0); // Remove oldest entry
-                }
-
-                // Update ChatBoxWindow if an entry was actually added or updated
-                if (entryUpdated)
-                {
-                    ChatBoxWindow.Instance?.UpdateChatHistory();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error adding/updating translation history: {ex.Message}");
-            }
-            
-            return entryId; // Return the ID of the added or updated entry
-        }
-        
-        // **** NEW: Method to update a specific entry by ID ****
-        public void UpdateTranslationInHistory(string id, string newTranslatedText)
-        {
-            if (string.IsNullOrEmpty(id))
-            {
-                Console.WriteLine("UpdateTranslationInHistory called with empty ID.");
-                return;
-            }
-
-            try
-            {
-                TranslationEntry? entryToUpdate = null;
-                // Use LINQ to find the entry efficiently
-                entryToUpdate = _translationHistory.FirstOrDefault(entry => entry.Id == id);
-
-                if (entryToUpdate != null)
-                {
-                    // Update the translation and timestamp
-                    entryToUpdate.TranslatedText = newTranslatedText;
-                    entryToUpdate.Timestamp = DateTime.Now; // Update timestamp on modification
-                    Console.WriteLine($"Updated translation for entry ID: {id}");
-
-                    // Refresh the ChatBox UI
-                    ChatBoxWindow.Instance?.UpdateChatHistory();
-                }
-                else
-                {
-                    Console.WriteLine($"Could not find translation entry with ID: {id} to update.");
-                }
-            }
-            catch (Exception ex)
-            {
-                 Console.WriteLine($"Error updating translation history by ID: {ex.Message}");
-            }
-        }
-
-        // Handle translation events from Logic
-        private void Logic_TranslationCompleted(object? sender, TranslationEventArgs e)
-        {
-            AddTranslationToHistory(e.OriginalText, e.TranslatedText);
         }
         
         // Load language settings from config
@@ -1397,6 +1220,35 @@ namespace UGTLive
         private bool isListening = false;
         private OpenAIRealtimeAudioServiceWhisper? openAIRealtimeAudioService = null;
 
+        private string systemPrompt = ""; // Field to store the system prompt
+
+        public string GetSystemPrompt() { return systemPrompt; }
+
+
+        private void LoadSystemPrompt()
+        {
+            string promptFilePath = "prompt.txt";
+            try
+            {
+                if (File.Exists(promptFilePath))
+                {
+                    systemPrompt = File.ReadAllText(promptFilePath);
+                    Console.WriteLine("Loaded system prompt from prompt.txt");
+                }
+                else
+                {
+                    systemPrompt = "Extract all Japanese text from this image of a visual novel dialog box. Provide the full extracted Japanese text, and break it into chunks of words or phrases (e.g., individual kanji, compounds, or short phrases). For each chunk, provide a word-for-word literal English translation. Output strictly in JSON: {'japanese': 'full text here', 'chunks': [{'jp': 'chunk1', 'en': 'translation1'}, {'jp': 'chunk2', 'en': 'translation2'}, ...]}";
+                    File.WriteAllText(promptFilePath, systemPrompt);
+                    Console.WriteLine("Created default prompt.txt");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading or creating prompt.txt: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /*
         private void ListenButton_Click(object sender, RoutedEventArgs e)
         {
             var btn = (System.Windows.Controls.Button)sender;
@@ -1465,5 +1317,6 @@ namespace UGTLive
                 UpdateTranslationInHistory(lineId, translatedWithIcon);
             });
         }
+        */
     }
 }

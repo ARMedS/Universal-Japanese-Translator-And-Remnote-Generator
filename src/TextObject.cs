@@ -24,6 +24,7 @@ namespace UGTLive
         public string Text { get; set; }
         public string ID { get; set; } = Guid.NewGuid().ToString();  // Initialize with a unique ID
         public string TextTranslated { get; set; } = string.Empty;  // Initialize with empty string
+        public string TextRomaji { get; set; } = string.Empty;
         public double X { get; set; }
         public double Y { get; set; }
         public double Width { get; set; }

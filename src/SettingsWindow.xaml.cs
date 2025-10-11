@@ -257,9 +257,6 @@ namespace UGTLive
             minContextSizeTextBox.LostFocus -= MinContextSizeTextBox_LostFocus;
             minChatBoxTextSizeTextBox.LostFocus -= MinChatBoxTextSizeTextBox_LostFocus;
             gameInfoTextBox.TextChanged -= GameInfoTextBox_TextChanged;
-            minTextFragmentSizeTextBox.LostFocus -= MinTextFragmentSizeTextBox_LostFocus;
-            minLetterConfidenceTextBox.LostFocus -= MinLetterConfidenceTextBox_LostFocus;
-            minLineConfidenceTextBox.LostFocus -= MinLineConfidenceTextBox_LostFocus;
             blockDetectionPowerTextBox.LostFocus -= BlockDetectionPowerTextBox_LostFocus;
             settleTimeTextBox.LostFocus -= SettleTimeTextBox_LostFocus;
             maxSettleTimeTextBox.LostFocus -= MaxSettleTimeTextBox_LostFocus;
@@ -269,18 +266,12 @@ namespace UGTLive
             minContextSizeTextBox.Text = ConfigManager.Instance.GetMinContextSize().ToString();
             minChatBoxTextSizeTextBox.Text = ConfigManager.Instance.GetChatBoxMinTextSize().ToString();
             gameInfoTextBox.Text = ConfigManager.Instance.GetGameInfo();
-            minTextFragmentSizeTextBox.Text = ConfigManager.Instance.GetMinTextFragmentSize().ToString();
-            minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence().ToString();
-            minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence().ToString();
             
             // Reattach focus event handlers
             maxContextPiecesTextBox.LostFocus += MaxContextPiecesTextBox_LostFocus;
             minContextSizeTextBox.LostFocus += MinContextSizeTextBox_LostFocus;
             minChatBoxTextSizeTextBox.LostFocus += MinChatBoxTextSizeTextBox_LostFocus;
             gameInfoTextBox.TextChanged += GameInfoTextBox_TextChanged;
-            minTextFragmentSizeTextBox.LostFocus += MinTextFragmentSizeTextBox_LostFocus;
-            minLetterConfidenceTextBox.LostFocus += MinLetterConfidenceTextBox_LostFocus;
-            minLineConfidenceTextBox.LostFocus += MinLineConfidenceTextBox_LostFocus;
             
             // Load source language either from config or MainWindow as fallback
             string configSourceLanguage = ConfigManager.Instance.GetSourceLanguage();
@@ -329,36 +320,6 @@ namespace UGTLive
             // Reattach event handlers
             sourceLanguageComboBox.SelectionChanged += SourceLanguageComboBox_SelectionChanged;
             targetLanguageComboBox.SelectionChanged += TargetLanguageComboBox_SelectionChanged;
-            
-            // Set OCR settings from config
-            string savedOcrMethod = ConfigManager.Instance.GetOcrMethod();
-            Console.WriteLine($"SettingsWindow: Loading OCR method '{savedOcrMethod}'");
-            
-            // Temporarily remove event handler to prevent triggering during initialization
-            ocrMethodComboBox.SelectionChanged -= OcrMethodComboBox_SelectionChanged;
-            
-            // Find matching ComboBoxItem
-            foreach (ComboBoxItem item in ocrMethodComboBox.Items)
-            {
-                string itemText = item.Content.ToString() ?? "";
-                if (string.Equals(itemText, savedOcrMethod, StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.WriteLine($"Found matching OCR method: '{itemText}'");
-                    ocrMethodComboBox.SelectedItem = item;
-                    break;
-                }
-            }
-            
-            // Re-attach event handler
-            ocrMethodComboBox.SelectionChanged += OcrMethodComboBox_SelectionChanged;
-            
-            // Get auto-translate setting from config instead of MainWindow
-            // This ensures the setting persists across application restarts
-            autoTranslateCheckBox.IsChecked = ConfigManager.Instance.IsAutoTranslateEnabled();
-            Console.WriteLine($"Settings window: Loading auto-translate from config: {ConfigManager.Instance.IsAutoTranslateEnabled()}");
-            
-            // Set leave translation onscreen setting
-            leaveTranslationOnscreenCheckBox.IsChecked = ConfigManager.Instance.IsLeaveTranslationOnscreenEnabled();
             
             // Set block detection settings directly from BlockDetectionManager
             // Temporarily remove event handlers to prevent triggering changes
@@ -411,6 +372,7 @@ namespace UGTLive
             
             // Load the current service's prompt
             LoadCurrentServicePrompt();
+            LoadFlashcardPrompt();
             
             // Load TTS settings
             
@@ -476,94 +438,7 @@ namespace UGTLive
             // Load ignore phrases
             LoadIgnorePhrases();
 
-            // Audio Processing settings
-            LoadAudioInputDevices(); // Load and set audio input devices
-            audioProcessingProviderComboBox.SelectedIndex = 0; // Only one for now
-            openAiRealtimeApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenAiRealtimeApiKey();
-            openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
-            
-            // Load speech prompt
-            openAiSpeechPromptTextBox.Text = ConfigManager.Instance.GetOpenAISpeechPrompt();
-            
-            // Initialize OpenAI voice selection
-            openAiVoiceComboBox.SelectionChanged -= OpenAiVoiceComboBox_SelectionChanged;
-            string currentVoice = ConfigManager.Instance.GetOpenAIVoice();
-            foreach (ComboBoxItem item in openAiVoiceComboBox.Items)
-            {
-                if (string.Equals(item.Tag?.ToString(), currentVoice, StringComparison.OrdinalIgnoreCase))
-                {
-                    openAiVoiceComboBox.SelectedItem = item;
-                    Console.WriteLine($"OpenAI voice set from config to {currentVoice}");
-                    break;
-                }
-            }
-            openAiVoiceComboBox.SelectionChanged += OpenAiVoiceComboBox_SelectionChanged;
-            
-            // Set up audio translation type dropdown
-            audioTranslationTypeComboBox.SelectionChanged -= AudioTranslationTypeComboBox_SelectionChanged;
-            
-            // Determine which option to select based on current settings
-            bool useGoogleTranslate = ConfigManager.Instance.IsAudioServiceAutoTranslateEnabled();
-            bool useOpenAITranslation = ConfigManager.Instance.IsOpenAITranslationEnabled();
-            
-            if (useOpenAITranslation)
-            {
-                // Select OpenAI option
-                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
-                {
-                    if (string.Equals(item.Tag?.ToString(), "openai", StringComparison.OrdinalIgnoreCase))
-                    {
-                        audioTranslationTypeComboBox.SelectedItem = item;
-                        break;
-                    }
-                }
-            }
-            else if (useGoogleTranslate)
-            {
-                // Select Google Translate option
-                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
-                {
-                    if (string.Equals(item.Tag?.ToString(), "google", StringComparison.OrdinalIgnoreCase))
-                    {
-                        audioTranslationTypeComboBox.SelectedItem = item;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                // Select No translation option
-                foreach (ComboBoxItem item in audioTranslationTypeComboBox.Items)
-                {
-                    if (string.Equals(item.Tag?.ToString(), "none", StringComparison.OrdinalIgnoreCase))
-                    {
-                        audioTranslationTypeComboBox.SelectedItem = item;
-                        break;
-                    }
-                }
-            }
-            
-            // Reattach the event handler
-            audioTranslationTypeComboBox.SelectionChanged += AudioTranslationTypeComboBox_SelectionChanged;
 
-            // Load Whisper source language
-            // Temporarily remove event handler
-            if (whisperSourceLanguageComboBox != null)
-            {
-                whisperSourceLanguageComboBox.SelectionChanged -= WhisperSourceLanguageComboBox_SelectionChanged;
-                string currentWhisperLanguage = ConfigManager.Instance.GetWhisperSourceLanguage();
-                foreach (ComboBoxItem item in whisperSourceLanguageComboBox.Items)
-                {
-                    if (string.Equals(item.Tag?.ToString(), currentWhisperLanguage, StringComparison.OrdinalIgnoreCase))
-                    {
-                        whisperSourceLanguageComboBox.SelectedItem = item;
-                        Console.WriteLine($"SettingsWindow: Set Whisper source language from config to {currentWhisperLanguage}");
-                        break;
-                    }
-                }
-                // Re-attach event handler
-                whisperSourceLanguageComboBox.SelectionChanged += WhisperSourceLanguageComboBox_SelectionChanged;
-            }
         }
         
         // Language settings
@@ -635,95 +510,6 @@ namespace UGTLive
                 // Reset the OCR hash to force a fresh comparison after changing target language
                 Logic.Instance.ClearAllTextObjects();
             }
-        }
-        
-        // OCR settings
-        private void OcrMethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            // Skip event if we're initializing
-            Console.WriteLine($"SettingsWindow.OcrMethodComboBox_SelectionChanged called (isInitializing: {_isInitializing})");
-            if (_isInitializing)
-            {
-                Console.WriteLine("Skipping OCR method change during initialization");
-                return;
-            }
-            
-            if (sender is ComboBox comboBox)
-            {
-                string? ocrMethod = (comboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
-                
-                if (!string.IsNullOrEmpty(ocrMethod))
-                {
-                    Console.WriteLine($"SettingsWindow OCR method changed to: '{ocrMethod}'");
-                    
-                    // Update MonitorWindow OCR method
-                    if (MonitorWindow.Instance.ocrMethodComboBox != null)
-                    {
-                        // Find and select the matching item by content, not index
-                        foreach (ComboBoxItem item in MonitorWindow.Instance.ocrMethodComboBox.Items)
-                        {
-                            if (string.Equals(item.Content.ToString(), ocrMethod, StringComparison.OrdinalIgnoreCase))
-                            {
-                                MonitorWindow.Instance.ocrMethodComboBox.SelectedItem = item;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Set OCR method in MainWindow
-                    MainWindow.Instance.SetOcrMethod(ocrMethod);
-                    
-                    // Only save to config if not during initialization
-                    if (!_isInitializing)
-                    {
-                        Console.WriteLine($"SettingsWindow: Saving OCR method '{ocrMethod}'");
-                        ConfigManager.Instance.SetOcrMethod(ocrMethod);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"SettingsWindow: Skipping save during initialization for OCR method '{ocrMethod}'");
-                    }
-                    
-                    // Reset the OCR hash to force a fresh comparison after changing OCR method
-                    Logic.Instance.ResetHash();
-                    
-                    // Clear any existing text objects
-                    Logic.Instance.ClearAllTextObjects();
-                }
-            }
-        }
-        
-        private void AutoTranslateCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            // Skip if initializing to prevent overriding values from config
-            if (_isInitializing)
-            {
-                return;
-            }
-            
-            bool isEnabled = autoTranslateCheckBox.IsChecked ?? false;
-            Console.WriteLine($"Settings window: Auto-translate changed to {isEnabled}");
-            
-            // Update auto translate setting in MainWindow
-            // This will also save to config and update the UI
-            MainWindow.Instance.SetAutoTranslateEnabled(isEnabled);
-            
-            // Update MonitorWindow CheckBox if needed
-            if (MonitorWindow.Instance.autoTranslateCheckBox != null)
-            {
-                MonitorWindow.Instance.autoTranslateCheckBox.IsChecked = autoTranslateCheckBox.IsChecked;
-            }
-        }
-        
-        private void LeaveTranslationOnscreenCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-        {
-            // Skip if initializing
-            if (_isInitializing)
-                return;
-                
-            bool isEnabled = leaveTranslationOnscreenCheckBox.IsChecked ?? false;
-            ConfigManager.Instance.SetLeaveTranslationOnscreenEnabled(isEnabled);
-            Console.WriteLine($"Leave translation onscreen enabled: {isEnabled}");
         }
         
         // Language swap button handler
@@ -912,12 +698,49 @@ namespace UGTLive
                 }
             }
         }
+
+        private void LoadFlashcardPrompt()
+        {
+            try
+            {
+                string prompt = ConfigManager.Instance.GetFlashcardPrompt();
+                flashcardPromptTextBox.Text = prompt;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading flashcard prompt: {ex.Message}");
+            }
+        }
+
+        private void SaveFlashcardPrompt()
+        {
+            string prompt = flashcardPromptTextBox.Text;
+            if (!string.IsNullOrWhiteSpace(prompt))
+            {
+                bool success = ConfigManager.Instance.SaveFlashcardPrompt(prompt);
+                if (success)
+                {
+                    Console.WriteLine("Flashcard prompt saved.");
+                }
+            }
+        }
+
+        private void SaveFlashcardPromptButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFlashcardPrompt();
+        }
+
+        private void FlashcardPromptTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            SaveFlashcardPrompt();
+        }
         
         // Update service-specific settings visibility
         private void UpdateServiceSpecificSettings(string selectedService)
         {
             try
             {
+                bool isOpenRouterSelected = selectedService == "OpenRouter";
                 bool isOllamaSelected = selectedService == "Ollama";
                 bool isGeminiSelected = selectedService == "Gemini";
                 bool isChatGptSelected = selectedService == "ChatGPT";
@@ -933,12 +756,20 @@ namespace UGTLive
                     chatGptModelLabel == null || chatGptModelGrid == null ||
                     googleTranslateApiKeyLabel == null || googleTranslateApiKeyGrid == null ||
                     googleTranslateServiceTypeLabel == null || googleTranslateServiceTypeComboBox == null ||
-                    googleTranslateMappingLabel == null || googleTranslateMappingCheckBox == null)
+                    googleTranslateMappingLabel == null || googleTranslateMappingCheckBox == null ||
+                    openRouterApiKeyLabel == null || openRouterApiKeyGrid == null ||
+                    openRouterModelLabel == null || openRouterModelGrid == null)
                 {
                     Console.WriteLine("UI elements not initialized yet. Skipping visibility update.");
                     return;
                 }
-                
+
+                // Show/hide OpenRouter-specific settings
+                openRouterApiKeyLabel.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                openRouterApiKeyGrid.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                openRouterModelLabel.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                openRouterModelGrid.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+
                 // Show/hide Gemini-specific settings
                 geminiApiKeyLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
                 geminiApiKeyPasswordBox.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -982,7 +813,26 @@ namespace UGTLive
                 savePromptButton.Visibility = showPromptTemplate ? Visibility.Visible : Visibility.Collapsed;
                 
                 // Load service-specific settings if they're being shown
-                if (isGeminiSelected)
+                if (isOpenRouterSelected)
+                {
+                    openRouterApiKeyPasswordBox.Password = ConfigManager.Instance.GetOpenRouterApiKey();
+                    string openRouterModel = ConfigManager.Instance.GetOpenRouterModel();
+                    bool found = false;
+                    foreach (ComboBoxItem item in openRouterModelComboBox.Items)
+                    {
+                        if (string.Equals(item.Content?.ToString(), openRouterModel, StringComparison.OrdinalIgnoreCase))
+                        {
+                            openRouterModelComboBox.SelectedItem = item;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        openRouterModelComboBox.Text = openRouterModel;
+                    }
+                }
+                else if (isGeminiSelected)
                 {
                     geminiApiKeyPasswordBox.Password = ConfigManager.Instance.GetGeminiApiKey();
                     
@@ -1222,6 +1072,65 @@ namespace UGTLive
         private void GeminiApiLink_Click(object sender, RoutedEventArgs e)
         {
             OpenUrl("https://ai.google.dev/tutorials/setup");
+        }
+
+        private void OpenRouterApiLink_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://openrouter.ai/keys");
+        }
+
+        private void OpenRouterApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing) return;
+                string apiKey = openRouterApiKeyPasswordBox.Password.Trim();
+                ConfigManager.Instance.SetOpenRouterApiKey(apiKey);
+                Console.WriteLine("OpenRouter API key updated");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenRouter API key: {ex.Message}");
+            }
+        }
+
+        private void OpenRouterModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing) return;
+                if (openRouterModelComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string model = selectedItem.Content?.ToString() ?? "";
+                    ConfigManager.Instance.SetOpenRouterModel(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenRouter model: {ex.Message}");
+            }
+        }
+
+        private void OpenRouterModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing) return;
+                string model = openRouterModelComboBox.Text?.Trim() ?? "";
+                if (!string.IsNullOrWhiteSpace(model))
+                {
+                    ConfigManager.Instance.SetOpenRouterModel(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenRouter model from text input: {ex.Message}");
+            }
+        }
+
+        private void ViewOpenRouterModelsButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenUrl("https://openrouter.ai/models");
         }
         
         private void GeminiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1628,99 +1537,12 @@ namespace UGTLive
             }
         }
         
-        private void MinTextFragmentSizeTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                if (int.TryParse(minTextFragmentSizeTextBox.Text, out int minSize) && minSize >= 0)
-                {
-                    ConfigManager.Instance.SetMinTextFragmentSize(minSize);
-                    Console.WriteLine($"Minimum text fragment size set to: {minSize}");
-                    
-                    // Reset the hash to force new OCR processing
-                    Logic.Instance.ResetHash();
-                }
-                else
-                {
-                    // Reset to current value from config if invalid
-                    minTextFragmentSizeTextBox.Text = ConfigManager.Instance.GetMinTextFragmentSize().ToString();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating minimum text fragment size: {ex.Message}");
-            }
-        }
-        
-        private void MinLetterConfidenceTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                if (double.TryParse(minLetterConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
-                {
-                    ConfigManager.Instance.SetMinLetterConfidence(confidence);
-                    Console.WriteLine($"Minimum letter confidence set to: {confidence}");
-                    
-                    // Reset the hash to force new OCR processing
-                    Logic.Instance.ResetHash();
-                }
-                else
-                {
-                    // Reset to current value from config if invalid
-                    minLetterConfidenceTextBox.Text = ConfigManager.Instance.GetMinLetterConfidence().ToString();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating minimum letter confidence: {ex.Message}");
-            }
-        }
-        
-        private void MinLineConfidenceTextBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                if (double.TryParse(minLineConfidenceTextBox.Text, out double confidence) && confidence >= 0 && confidence <= 1)
-                {
-                    ConfigManager.Instance.SetMinLineConfidence(confidence);
-                    Console.WriteLine($"Minimum line confidence set to: {confidence}");
-                    
-                    // Reset the hash to force new OCR processing
-                    Logic.Instance.ResetHash();
-                }
-                else
-                {
-                    // Reset to current value from config if invalid
-                    minLineConfidenceTextBox.Text = ConfigManager.Instance.GetMinLineConfidence().ToString();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating minimum line confidence: {ex.Message}");
-            }
-        }
-        
         // Handle Clear Context button click
         private void ClearContextButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 Console.WriteLine("Clearing translation context and history");
-                
-                // Clear translation history in MainWindow
-                MainWindow.Instance.ClearTranslationHistory();
                 
                 // Reset hash to force new translation on next capture
                 Logic.Instance.ResetHash();
@@ -1914,333 +1736,60 @@ namespace UGTLive
             }
         }
 
-        private void AudioProcessingProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (_isInitializing) return;
-            if (audioProcessingProviderComboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                ConfigManager.Instance.SetAudioProcessingProvider(selectedItem.Content.ToString() ?? "OpenAI Realtime API");
-            }
-        }
-
-        private void OpenAiRealtimeApiKeyPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
-        {
-            if (_isInitializing) return;
-            ConfigManager.Instance.SetOpenAiRealtimeApiKey(openAiRealtimeApiKeyPasswordBox.Password.Trim());
-        }
-
-        // Method to load audio input devices into the ComboBox
         private void LoadAudioInputDevices()
         {
-            try
-            {
-                // Store the currently selected device index
-                int currentDeviceIndex = ConfigManager.Instance.GetAudioInputDeviceIndex();
-                
-                // Clear previous items
-                inputDeviceComboBox.Items.Clear();
-                
-                // Get the number of available input devices
-                int deviceCount = WaveInEvent.DeviceCount;
-                
-                // Add a ComboBoxItem for each input device
-                for (int i = 0; i < deviceCount; i++)
-                {
-                    var deviceCapabilities = WaveInEvent.GetCapabilities(i);
-                    var item = new ComboBoxItem
-                    {
-                        Content = deviceCapabilities.ProductName,
-                        Tag = i
-                    };
-                    inputDeviceComboBox.Items.Add(item);
-                    
-                    // Select this item if it matches the currently selected device
-                    if (i == currentDeviceIndex)
-                    {
-                        inputDeviceComboBox.SelectedItem = item;
-                    }
-                }
-                
-                // If no device was selected, default to the first one
-                if (inputDeviceComboBox.SelectedIndex < 0 && inputDeviceComboBox.Items.Count > 0)
-                {
-                    inputDeviceComboBox.SelectedIndex = 0;
-                }
-                
-                // Load output devices too
-                LoadAudioOutputDevices();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading audio input devices: {ex.Message}");
-            }
         }
 
-        // Load audio output devices
+        private void AudioProcessingProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+        }
+
         private void LoadAudioOutputDevices()
         {
-            try
-            {
-                // Store the currently selected device index
-                int currentDeviceIndex = ConfigManager.Instance.GetAudioOutputDeviceIndex();
-                
-                // Clear previous items
-                outputDeviceComboBox.Items.Clear();
-                
-                // Add system default option
-                var defaultItem = new ComboBoxItem
-                {
-                    Content = "System Default",
-                    Tag = -1
-                };
-                outputDeviceComboBox.Items.Add(defaultItem);
-                
-                // Get the number of available output devices
-                int deviceCount = WaveOut.DeviceCount;
-                
-                // Add a ComboBoxItem for each output device
-                for (int i = 0; i < deviceCount; i++)
-                {
-                    var deviceCapabilities = WaveOut.GetCapabilities(i);
-                    var item = new ComboBoxItem
-                    {
-                        Content = deviceCapabilities.ProductName,
-                        Tag = i
-                    };
-                    outputDeviceComboBox.Items.Add(item);
-                    
-                    // Select this item if it matches the currently selected device
-                    if (i == currentDeviceIndex)
-                    {
-                        outputDeviceComboBox.SelectedItem = item;
-                    }
-                }
-                
-                // If current device is -1 (default), select the default option
-                if (currentDeviceIndex == -1)
-                {
-                    outputDeviceComboBox.SelectedItem = defaultItem;
-                }
-                // If no device was selected, default to system default
-                else if (outputDeviceComboBox.SelectedIndex < 0)
-                {
-                    outputDeviceComboBox.SelectedItem = defaultItem;
-                }
-                
-                // Enable or disable output device controls based on audio playback setting
-                bool playbackEnabled = ConfigManager.Instance.IsOpenAIAudioPlaybackEnabled();
-                openAiAudioPlaybackCheckBox.IsChecked = playbackEnabled;
-                outputDeviceComboBox.IsEnabled = playbackEnabled;
-                outputDeviceLabel.IsEnabled = playbackEnabled;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading audio output devices: {ex.Message}");
-            }
         }
         
         private void OutputDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                if (outputDeviceComboBox.SelectedItem is ComboBoxItem selectedItem)
-                {
-                    int deviceIndex = (int)selectedItem.Tag;
-                    ConfigManager.Instance.SetAudioOutputDeviceIndex(deviceIndex);
-                    
-                    Console.WriteLine($"Audio output device set to: {selectedItem.Content} (Index: {deviceIndex})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating audio output device: {ex.Message}");
-            }
         }
         
         private void OpenAiAudioPlaybackCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                bool isEnabled = openAiAudioPlaybackCheckBox.IsChecked ?? true;
-                
-                // Update UI
-                outputDeviceComboBox.IsEnabled = isEnabled;
-                outputDeviceLabel.IsEnabled = isEnabled;
-                
-                // Save to config
-                ConfigManager.Instance.SetOpenAIAudioPlaybackEnabled(isEnabled);
-                Console.WriteLine($"OpenAI audio playback enabled set to: {isEnabled}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating OpenAI audio playback setting: {ex.Message}");
-            }
         }
 
         private void PopulateWhisperLanguageComboBox()
         {
-            var languages = new List<(string Name, string Code)>
-            {
-                ("Auto", "Auto"), ("English", "en"), ("Japanese", "ja"), ("Chinese", "zh"),
-                ("Spanish", "es"), ("French", "fr"), ("German", "de"), ("Italian", "it"),
-                ("Korean", "ko"), ("Portuguese", "pt"), ("Russian", "ru"), ("Arabic", "ar"),
-                ("Hindi", "hi"), ("Turkish", "tr"), ("Dutch", "nl"), ("Polish", "pl"),
-                ("Swedish", "sv"), ("Norwegian", "no"), ("Danish", "da"), ("Finnish", "fi"),
-                ("Czech", "cs"), ("Hungarian", "hu"), ("Romanian", "ro"), ("Greek", "el"),
-                ("Thai", "th"), ("Vietnamese", "vi"), ("Indonesian", "id"), ("Malay", "ms"),
-                ("Hebrew", "he"), ("Ukrainian", "uk")
-                // Add more languages as needed
-            };
-
-            if (whisperSourceLanguageComboBox != null)
-            {
-                whisperSourceLanguageComboBox.Items.Clear();
-                foreach (var lang in languages)
-                {
-                    whisperSourceLanguageComboBox.Items.Add(new ComboBoxItem { Content = lang.Name, Tag = lang.Code });
-                }
-            }
         }
 
-        // Whisper Source Language changed
         private void WhisperSourceLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_isInitializing)
-                return;
-
-            if (whisperSourceLanguageComboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                string languageCode = selectedItem.Tag?.ToString() ?? "Auto";
-                ConfigManager.Instance.SetWhisperSourceLanguage(languageCode);
-                Console.WriteLine($"Whisper source language set to: {languageCode}");
-            }
         }
 
-        // Event handler for audio translation type dropdown
         private void AudioTranslationTypeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_isInitializing) return;
-            
-            if (audioTranslationTypeComboBox.SelectedItem is ComboBoxItem selectedItem)
-            {
-                string tag = selectedItem.Tag?.ToString() ?? "none";
-                
-                // Update the configuration based on selection
-                switch (tag)
-                {
-                    case "none":
-                        // No translation
-                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(false);
-                        ConfigManager.Instance.SetOpenAITranslationEnabled(false);
-                        break;
-                    case "openai":
-                        // OpenAI translation
-                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(false);
-                        ConfigManager.Instance.SetOpenAITranslationEnabled(true);
-                        break;
-                    case "google":
-                        // Google Translate
-                        ConfigManager.Instance.SetAudioServiceAutoTranslateEnabled(true);
-                        ConfigManager.Instance.SetOpenAITranslationEnabled(false);
-                        break;
-                }
-                
-                Console.WriteLine($"Audio translation type set to: {tag}");
-            }
         }
 
-        // Event handler for input device selection change
         private void InputDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_isInitializing || inputDeviceComboBox == null || inputDeviceComboBox.SelectedItem == null)
-                return;
-
-            if (inputDeviceComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is int selectedIndex)
-            {
-                if (selectedIndex >= 0) // Ensure it's a valid device index, not the error tag
-                {
-                    ConfigManager.Instance.SetAudioInputDeviceIndex(selectedIndex);
-                    Console.WriteLine($"Audio input device changed to: {selectedItem.Content} (Index: {selectedIndex})");
-                }
-            }
         }
 
         private void OpenAiSilenceDurationMsTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (_isInitializing) return;
-
-            if (int.TryParse(openAiSilenceDurationMsTextBox.Text, out int duration) && duration >= 0)
-            {
-                ConfigManager.Instance.SetOpenAiSilenceDurationMs(duration);
-                Console.WriteLine($"OpenAI Silence Duration set to: {duration}ms");
-            }
-            else
-            {
-                // Reset to current config value if input is invalid
-                openAiSilenceDurationMsTextBox.Text = ConfigManager.Instance.GetOpenAiSilenceDurationMs().ToString();
-                MessageBox.Show("Invalid silence duration. Please enter a non-negative number.", "Invalid Input", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
         }
 
         private void OpenAiSpeechPromptTextBox_LostFocus(object sender, RoutedEventArgs e)
         {
-            if (_isInitializing) return;
-            
-            string prompt = openAiSpeechPromptTextBox.Text.Trim();
-            if (!string.IsNullOrEmpty(prompt))
-            {
-                ConfigManager.Instance.SetOpenAISpeechPrompt(prompt);
-                Console.WriteLine("OpenAI speech prompt updated");
-            }
         }
 
-        // Handle Set Default Speech Prompt button click
         private void SetDefaultSpeechPromptButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isInitializing) return;
-            
-            // Reset to default prompt by calling the config method with a null or empty string
-            ConfigManager.Instance.ResetOpenAISpeechPromptToDefault();
-            
-            // Update the text box with the new default value
-            openAiSpeechPromptTextBox.Text = ConfigManager.Instance.GetOpenAISpeechPrompt();
-            
-            Console.WriteLine("OpenAI speech prompt reset to default");
         }
 
-        // Handle OpenAI voice selection change
         private void OpenAiVoiceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            try
-            {
-                // Skip if initializing
-                if (_isInitializing)
-                    return;
-                    
-                if (openAiVoiceComboBox.SelectedItem is ComboBoxItem selectedItem)
-                {
-                    string voiceId = selectedItem.Tag?.ToString() ?? "echo";
-                    ConfigManager.Instance.SetOpenAIVoice(voiceId);
-                    Console.WriteLine($"OpenAI voice set to: {selectedItem.Content} (ID: {voiceId})");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating OpenAI voice: {ex.Message}");
-            }
         }
 
         private void OpenAiRealtimeApiLink_Click(object sender, RoutedEventArgs e)
         {
-            OpenUrl("https://platform.openai.com/account/api-keys");
         }
 
         private void MaxSettleTimeTextBox_LostFocus(object sender, RoutedEventArgs e)

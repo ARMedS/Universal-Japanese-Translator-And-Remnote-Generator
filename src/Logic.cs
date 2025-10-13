@@ -1841,7 +1841,7 @@ namespace UGTLive
                 // This would log the post-processed response, which we don't need
                 // LogManager.Instance.LogLlmReply(translationResponse);
 
-                Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
+                // Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
 
                 ProcessTranslatedJSON(translationResponse);
               
@@ -1890,7 +1890,7 @@ namespace UGTLive
                 }
 
                 // Process the response
-                Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
+                // Console.WriteLine($"Raw translation response from {currentService}:\n{translationResponse}");
                 ProcessTranslatedJSON(translationResponse);
             }
             catch (Exception ex)
@@ -1908,26 +1908,56 @@ namespace UGTLive
         {
             try
             {
-                // 1. Get the prompt and game name
+                // 1. Get the prompt
                 string flashcardPrompt = ConfigManager.Instance.GetFlashcardPrompt();
-                string gameName = ConfigManager.Instance.GetGameName();
 
-                // 2. Construct the final prompt
+                // 2. Format radicals information for prompt inclusion
+                string radicalsInfo = FormatRadicalsForPrompt(japanese);
+
+                // 3. Construct the final prompt with all placeholders replaced
                 string finalPrompt = flashcardPrompt
                     .Replace("{word}", japanese)
                     .Replace("{translation}", english)
                     .Replace("{romaji}", romaji)
-                    .Replace("{context_sentence}", fullSentence)
-                    .Replace("{game_name}", gameName);
+                    .Replace("{radicals}", radicalsInfo);
 
-                Console.WriteLine($"--- Sending Flashcard Prompt to LLM ---\n{finalPrompt}");
+                // 4. Append sentence context at the end
+                var contextBuilder = new StringBuilder();
+                contextBuilder.AppendLine("\n**Generate the student's request:**");
+                contextBuilder.AppendLine(fullSentence);
 
-                // 3. Make the LLM call
+                string radicalsOnly = "";
+                // Add radicals information for redundancy
+                if (!string.IsNullOrEmpty(radicalsInfo))
+                {
+                    // Extract just the radicals part (remove "with kanji radicals: ")
+                    radicalsOnly = radicalsInfo.Replace("with kanji radicals: ", "");
+                    contextBuilder.AppendLine($"\n**Kanji Radicals:** {radicalsOnly}");
+                }
+
+                finalPrompt += contextBuilder.ToString();
+
+                // Enhanced logging with radicals markers
+                Console.WriteLine($"--- Sending Flashcard Prompt to LLM ---");
+                string promptWithMarkers = finalPrompt;
+                if (!string.IsNullOrEmpty(radicalsInfo))
+                {
+                    // Mark where radicals appear in the prompt
+                    promptWithMarkers = promptWithMarkers.Replace(radicalsInfo, $"***RADICALS_PLACEHOLDER: {radicalsInfo}***");
+                    if (!string.IsNullOrEmpty(radicalsOnly))
+                    {
+                        promptWithMarkers = promptWithMarkers.Replace($"**Kanji Radicals:** {radicalsOnly}", $"***RADICALS_APPENDED: {radicalsOnly}***");
+                    }
+                }
+                Console.WriteLine(promptWithMarkers);
+                Console.WriteLine("--- End Flashcard Prompt ---");
+
+                // 4. Make the LLM call
                 ITranslationService translationService = new OpenRouterService();
 
                 string? flashcardResponse = await translationService.TranslateAsync("", finalPrompt); // Text is empty as prompt is self-contained
 
-                // 4. Append the response
+                // 5. Append the response
                 if (ChatBoxWindow.Instance != null && !string.IsNullOrEmpty(flashcardResponse))
                 {
                     ChatBoxWindow.Instance.AppendToFlashcardOutput(flashcardResponse);
@@ -1942,6 +1972,60 @@ namespace UGTLive
         public string GetLlmPrompt()
         {
             return ConfigManager.Instance.GetLlmPrompt();
+        }
+
+        /// <summary>
+        /// Formats kanji radicals information for inclusion in flashcard prompts
+        /// </summary>
+        /// <param name="japanese">The Japanese word to analyze for kanji</param>
+        /// <returns>Formatted radicals string like "with kanji radicals: 日(口), 本(木)" or empty string if no radicals found</returns>
+        private string FormatRadicalsForPrompt(string japanese)
+        {
+            try
+            {
+                Console.WriteLine($"[RadicalsDebug] Processing text: '{japanese}'");
+
+                string cleanedJapanese = japanese.Trim('（', '）', '(', ')'); // Pre-process to remove brackets
+                var uniqueKanji = new HashSet<char>(cleanedJapanese.Where(c => c >= 0x4E00 && c <= 0x9FAF));
+
+                Console.WriteLine($"[RadicalsDebug] Cleaned text: '{cleanedJapanese}'");
+                Console.WriteLine($"[RadicalsDebug] Detected kanji: [{string.Join(", ", uniqueKanji)}]");
+
+                if (!uniqueKanji.Any())
+                {
+                    Console.WriteLine("[RadicalsDebug] No kanji found, returning empty");
+                    return string.Empty; // No kanji found
+                }
+
+                var radicalParts = new List<string>();
+                foreach (char kanji in uniqueKanji)
+                {
+                    var radicals = ConfigManager.Instance.GetKanjiRadicals(kanji.ToString());
+                    Console.WriteLine($"[RadicalsDebug] Kanji '{kanji}': radicals found = {radicals.Count} -> [{string.Join(", ", radicals)}]");
+
+                    if (radicals.Any())
+                    {
+                        string radicalString = $"{kanji}({string.Join(",", radicals)})";
+                        radicalParts.Add(radicalString);
+                        Console.WriteLine($"[RadicalsDebug] Added radical string: '{radicalString}'");
+                    }
+                }
+
+                if (!radicalParts.Any())
+                {
+                    Console.WriteLine("[RadicalsDebug] No radicals found for any kanji, returning empty");
+                    return string.Empty; // No radicals found for any kanji
+                }
+
+                string result = $"with kanji radicals: {string.Join(", ", radicalParts)}";
+                Console.WriteLine($"[RadicalsDebug] Final radicals string: '{result}'");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[RadicalsDebug] Error formatting radicals for '{japanese}': {ex.Message}");
+                return string.Empty; // Return empty on error to avoid breaking prompt
+            }
         }
 
         public string GetGeminiApiKey()

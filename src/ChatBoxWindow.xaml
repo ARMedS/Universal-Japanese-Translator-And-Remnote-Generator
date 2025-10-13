@@ -60,7 +60,7 @@
                              Background="#80000000"
                              Foreground="White"
                              BorderThickness="0"
-                             FontSize="14"
+                             FontSize="28"
                              FontFamily="Yu Gothic UI"
                              Padding="10"
                              AcceptsReturn="True"

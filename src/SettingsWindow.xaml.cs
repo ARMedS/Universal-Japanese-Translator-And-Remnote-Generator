@@ -714,14 +714,32 @@ namespace UGTLive
 
         private void SaveFlashcardPrompt()
         {
-            string prompt = flashcardPromptTextBox.Text;
-            if (!string.IsNullOrWhiteSpace(prompt))
+            string prompt = flashcardPromptTextBox.Text?.Trim();
+
+            if (string.IsNullOrWhiteSpace(prompt))
             {
-                bool success = ConfigManager.Instance.SaveFlashcardPrompt(prompt);
-                if (success)
-                {
-                    Console.WriteLine("Flashcard prompt saved.");
-                }
+                Console.WriteLine("[Settings] Error: Flashcard prompt cannot be empty");
+                // Could add UI feedback here if needed
+                return;
+            }
+
+            if (prompt.Length < 10)
+            {
+                Console.WriteLine("[Settings] Warning: Flashcard prompt seems very short, but proceeding...");
+            }
+
+            Console.WriteLine($"[Settings] Saving flashcard prompt ({prompt.Length} characters)...");
+            bool success = ConfigManager.Instance.SaveFlashcardPrompt(prompt);
+
+            if (success)
+            {
+                Console.WriteLine("[Settings] Flashcard prompt saved successfully.");
+                // Could add success UI feedback here if needed
+            }
+            else
+            {
+                Console.WriteLine("[Settings] Error: Failed to save flashcard prompt. Check console logs for details.");
+                // Could add error UI feedback here if needed
             }
         }
 

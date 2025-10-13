@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -373,19 +373,44 @@ namespace UGTLive
             // Set OCR method in this window (MainWindow)
             SetOcrMethod(savedOcrMethod);
             
-            // Make sure monitor window is shown on startup to the right of the main window
-            if (!MonitorWindow.Instance.IsVisible)
+            // Make sure ChatBox window is shown on startup to the right of the main window
+            if (!ChatBoxWindow.Instance.IsVisible)
             {
                 // Position to the right of the main window, only for initial startup
-                PositionMonitorWindowToTheRight();
-                MonitorWindow.Instance.Show();
-                
-                // Consider this the initial position for the monitor window toggle
-                monitorWindowLeft = MonitorWindow.Instance.Left;
-                monitorWindowTop = MonitorWindow.Instance.Top;
-                
-                // Update monitor button color to red since the monitor is now active
-                monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+                PositionChatBoxWindowToTheRight();
+                ChatBoxWindow.Instance.Show();
+
+                // Consider this the initial position for the chatbox window toggle
+                chatBoxWindowLeft = ChatBoxWindow.Instance.Left;
+                chatBoxWindowTop = ChatBoxWindow.Instance.Top;
+
+                // Attach event handlers for proper state management
+                chatBoxWindow = ChatBoxWindow.Instance;
+                if (!_chatBoxEventsAttached && chatBoxWindow != null)
+                {
+                    // Subscribe to both Closed and IsVisibleChanged events
+                    chatBoxWindow.Closed += (s, e) =>
+                    {
+                        isChatBoxVisible = false;
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                    };
+
+                    // Also handle visibility changes for when the X button is clicked (which now hides instead of closes)
+                    chatBoxWindow.IsVisibleChanged += (s, e) =>
+                    {
+                        if (!(bool)e.NewValue) // Window is now hidden
+                        {
+                            isChatBoxVisible = false;
+                            chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                        }
+                    };
+
+                    _chatBoxEventsAttached = true;
+                }
+
+                // Update state and button color since the chatbox is now active
+                isChatBoxVisible = true;
+                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
             }
             
             // Test configuration loading
@@ -999,15 +1024,34 @@ namespace UGTLive
             // Get the position of the main window
             double mainRight = this.Left + this.ActualWidth;
             double mainTop = this.Top;
-            
+
             // Set the position of the monitor window
             MonitorWindow.Instance.Left = mainRight + 10; // 10px gap between windows
             MonitorWindow.Instance.Top = mainTop;
+        }
+
+        private void PositionChatBoxWindowToTheRight()
+        {
+            // Get the position of the main window
+            double mainRight = this.Left + this.ActualWidth;
+            double mainTop = this.Top;
+
+            // Set the position of the chatbox window
+            ChatBoxWindow.Instance.Left = mainRight + 10; // 10px gap between windows
+            ChatBoxWindow.Instance.Top = mainTop;
+
+            // Set doubled width and tripled height for chatbox (default is 400x300, so make it 800x900)
+            ChatBoxWindow.Instance.Width = 800;
+            ChatBoxWindow.Instance.Height = 900;
         }
         
         // Remember the monitor window position
         private double monitorWindowLeft = -1;
         private double monitorWindowTop = -1;
+
+        // Remember the chatbox window position
+        private double chatBoxWindowLeft = -1;
+        private double chatBoxWindowTop = -1;
         
         // Show/hide the monitor window
         private void ToggleMonitorWindow()

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Text.Json;
 using System.Windows;
 using Application = System.Windows.Application;
 using MessageBox = System.Windows.MessageBox;
@@ -20,7 +21,9 @@ namespace UGTLive
         private readonly string _chatgptConfigFilePath;
         private readonly string _googleTranslateConfigFilePath;
         private readonly string _openRouterConfigFilePath; // Added for OpenRouter
+        private readonly string _flashcardPromptFilePath;
         private readonly Dictionary<string, string> _configValues;
+        private readonly Dictionary<string, List<string>> _kanjiToRadicals;
         private string _currentTranslationService = "OpenRouter"; // Default to OpenRouter
 
         // Config keys
@@ -128,15 +131,20 @@ namespace UGTLive
             _chatgptConfigFilePath = Path.Combine(appDirectory, "chatgpt_config.txt");
             _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
             _openRouterConfigFilePath = Path.Combine(appDirectory, "openrouter_config.txt"); // Added for OpenRouter
+            _flashcardPromptFilePath = Path.Combine(appDirectory, "flashcard_prompt.txt");
             
+            _kanjiToRadicals = new Dictionary<string, List<string>>();
+
             Console.WriteLine($"Config file path: {_configFilePath}");
             Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
             Console.WriteLine($"Ollama config file path: {_ollamaConfigFilePath}");
             Console.WriteLine($"ChatGPT config file path: {_chatgptConfigFilePath}");
             Console.WriteLine($"Google Translate config file path: {_googleTranslateConfigFilePath}");
+            Console.WriteLine($"Flashcard prompt file path: {_flashcardPromptFilePath}");
             
             // Load main config values
             LoadConfig();
+            LoadKanjiData();
             
             // Load translation service from config
             if (_configValues.TryGetValue(TRANSLATION_SERVICE, out string? service))
@@ -161,6 +169,74 @@ namespace UGTLive
             
             // Create service-specific config files if they don't exist
             EnsureServiceConfigFilesExist();
+        }
+
+        private void LoadKanjiData()
+        {
+            try
+            {
+                string kanjiDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kanji-deconstructed", "components-kc.csv");
+                if (File.Exists(kanjiDataPath))
+                {
+                    string[] csvLines = File.ReadAllLines(kanjiDataPath);
+                    foreach (string line in csvLines)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            string[] parts = line.Split(',');
+                            if (parts.Length >= 2)
+                            {
+                                string kanji = parts[0].Trim();
+                                var radicals = new List<string>();
+                                for (int i = 1; i < parts.Length; i++)
+                                {
+                                    string radical = parts[i].Trim();
+                                    if (!string.IsNullOrEmpty(radical))
+                                    {
+                                        radicals.Add(radical);
+                                    }
+                                }
+                                if (!string.IsNullOrEmpty(kanji) && radicals.Any())
+                                {
+                                    _kanjiToRadicals[kanji] = radicals;
+                                }
+                            }
+                        }
+                    }
+                    Console.WriteLine($"Successfully loaded and parsed Kanji data. Loaded {_kanjiToRadicals.Count} kanji entries.");
+
+                    // Debug: Test a few known kanji
+                    if (_kanjiToRadicals.ContainsKey("丸"))
+                    {
+                        Console.WriteLine($"Debug: 丸 radicals = {string.Join(", ", _kanjiToRadicals["丸"])}");
+                    }
+                    if (_kanjiToRadicals.ContainsKey("及"))
+                    {
+                        Console.WriteLine($"Debug: 及 radicals = {string.Join(", ", _kanjiToRadicals["及"])}");
+                    }
+                    if (_kanjiToRadicals.ContainsKey("屈"))
+                    {
+                        Console.WriteLine($"Debug: 屈 radicals = {string.Join(", ", _kanjiToRadicals["屈"])}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Kanji data file not found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading Kanji data: {ex.Message}");
+            }
+        }
+
+        public List<string> GetKanjiRadicals(string kanji)
+        {
+            if (_kanjiToRadicals.TryGetValue(kanji, out var radicals))
+            {
+                return radicals;
+            }
+            return new List<string>();
         }
 
         // Get a boolean configuration value
@@ -658,61 +734,122 @@ namespace UGTLive
         {
             try
             {
-                string appDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app");
-                if (!Directory.Exists(appDir))
+                Console.WriteLine($"[FlashcardPrompt] Attempting to read from: {_flashcardPromptFilePath}");
+                if (File.Exists(_flashcardPromptFilePath))
                 {
-                    Directory.CreateDirectory(appDir);
-                }
-                string filePath = Path.Combine(appDir, "flashcard_prompt.txt");
-                if (File.Exists(filePath))
-                {
-                    string content = File.ReadAllText(filePath);
+                    string content = File.ReadAllText(_flashcardPromptFilePath);
                     if (!string.IsNullOrWhiteSpace(content))
                     {
-                        return content;
+                        Console.WriteLine($"[FlashcardPrompt] Successfully loaded custom prompt ({content.Length} chars)");
+                        return content.Trim();
+                    }
+                    else
+                    {
+                        Console.WriteLine("[FlashcardPrompt] File exists but is empty, using default");
                     }
                 }
-                string def = GetDefaultFlashcardPrompt();
-                File.WriteAllText(filePath, def);
-                return def;
+                else
+                {
+                    Console.WriteLine("[FlashcardPrompt] File does not exist, creating with default");
+                }
+
+                string defaultPrompt = GetDefaultFlashcardPrompt();
+                File.WriteAllText(_flashcardPromptFilePath, defaultPrompt);
+                Console.WriteLine($"[FlashcardPrompt] Created default prompt file ({defaultPrompt.Length} chars)");
+                return defaultPrompt;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error reading flashcard prompt: {ex.Message}");
+                Console.WriteLine($"[FlashcardPrompt] Error reading/creating flashcard prompt file: {ex.Message}");
+                Console.WriteLine($"[FlashcardPrompt] Full path: {_flashcardPromptFilePath}");
                 return GetDefaultFlashcardPrompt();
             }
         }
 
         private string GetDefaultFlashcardPrompt()
         {
-            return "You are a flashcard generator for language learning. Given {word} (Japanese), its {translation} (English), optional {romaji}, and a {context_sentence} from the game {game_name}, create a concise Anki-style flashcard JSON with fields: {\"front\": <JP word>, \"back\": <EN meaning>, \"reading\": <romaji or empty>, \"sentence\": <context sentence>, \"notes\": <brief nuance or grammar>. Keep responses strictly as minified JSON.";
+            try
+            {
+                if (File.Exists(_flashcardPromptFilePath))
+                {
+                    string content = File.ReadAllText(_flashcardPromptFilePath);
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        Console.WriteLine($"[FlashcardPrompt] Loaded default prompt from file ({content.Length} chars)");
+                        return content.Trim();
+                    }
+                }
+                Console.WriteLine("[FlashcardPrompt] Default prompt file not found or empty, using fallback");
+                return "You are a flashcard generator for language learning. Given {word} (Japanese), its {translation} (English), optional {romaji}, and a {context_sentence} from the game {game_name}, create a concise Anki-style flashcard JSON with fields: {\"front\": <JP word>, \"back\": <EN meaning>, \"reading\": <romaji or empty>, \"sentence\": <context sentence>, \"notes\": <brief nuance or grammar>. Keep responses strictly as minified JSON.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[FlashcardPrompt] Error loading default prompt from file: {ex.Message}, using fallback");
+                return "You are a flashcard generator for language learning. Given {word} (Japanese), its {translation} (English), optional {romaji}, and a {context_sentence} from the game {game_name}, create a concise Anki-style flashcard JSON with fields: {\"front\": <JP word>, \"back\": <EN meaning>, \"reading\": <romaji or empty>, \"sentence\": <context sentence>, \"notes\": <brief nuance or grammar>. Keep responses strictly as minified JSON.";
+            }
         }
 
         public bool SaveFlashcardPrompt(string prompt)
         {
+            if (string.IsNullOrWhiteSpace(prompt))
+            {
+                Console.WriteLine("[FlashcardPrompt] Error: Cannot save empty or null prompt");
+                return false;
+            }
+
             try
             {
-                string appDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app");
-                if (!Directory.Exists(appDir))
+                Console.WriteLine($"[FlashcardPrompt] Attempting to save to: {_flashcardPromptFilePath}");
+
+                // Ensure directory exists (though it should be the same as exe directory)
+                string directory = Path.GetDirectoryName(_flashcardPromptFilePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                 {
-                    Directory.CreateDirectory(appDir);
+                    Directory.CreateDirectory(directory);
+                    Console.WriteLine($"[FlashcardPrompt] Created directory: {directory}");
                 }
-                string filePath = Path.Combine(appDir, "flashcard_prompt.txt");
-                File.WriteAllText(filePath, prompt ?? "");
-                Console.WriteLine($"Saved flashcard prompt ({(prompt?.Length ?? 0)} chars)");
-                return true;
+
+                File.WriteAllText(_flashcardPromptFilePath, prompt.Trim());
+                Console.WriteLine($"[FlashcardPrompt] Successfully saved prompt ({prompt.Length} chars) to {_flashcardPromptFilePath}");
+
+                // Verify the file was actually written
+                if (File.Exists(_flashcardPromptFilePath))
+                {
+                    string verifyContent = File.ReadAllText(_flashcardPromptFilePath);
+                    if (verifyContent.Trim() == prompt.Trim())
+                    {
+                        Console.WriteLine("[FlashcardPrompt] File verification successful");
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine("[FlashcardPrompt] Error: File content verification failed");
+                        return false;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("[FlashcardPrompt] Error: File was not created");
+                    return false;
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"[FlashcardPrompt] Error: Access denied to path {_flashcardPromptFilePath}. {ex.Message}");
+                return false;
+            }
+            catch (IOException ex)
+            {
+                Console.WriteLine($"[FlashcardPrompt] Error: IO exception writing to {_flashcardPromptFilePath}. {ex.Message}");
+                return false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error saving flashcard prompt: {ex.Message}");
+                Console.WriteLine($"[FlashcardPrompt] Error: Unexpected exception saving flashcard prompt to {_flashcardPromptFilePath}. {ex.Message}");
                 return false;
             }
         }
 
-        public string GetGameName()
-        {
-            return GetValue("game_name", "My Game");
-        }
         
         // Get prompt for specific translation service
         public string GetServicePrompt(string service)

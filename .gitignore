@@ -418,3 +418,4 @@ app/webserver/*
 UniversalGameTranslatorLive_Windows.zip
 
 **/.claude/settings.local.json
+.env 

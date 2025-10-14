@@ -39,4 +39,10 @@
     <Resource Include="media\Icon1.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="components-kc.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

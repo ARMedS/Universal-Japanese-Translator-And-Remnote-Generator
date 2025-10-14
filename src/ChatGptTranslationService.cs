@@ -34,7 +34,7 @@ namespace UGTLive
             {
                 string defaultPrompt = "You are a translator. Translate the text I'll provide into English. Keep it simple and conversational.";
                 string content = $"<llm_prompt_multi_start>\n{defaultPrompt}\n<llm_prompt_multi_end>";
-                System.IO.File.WriteAllText(_configFilePath, content);
+                System.IO.File.WriteAllText(_configFilePath, content, System.Text.Encoding.UTF8);
                 Console.WriteLine("Created default ChatGPT config file");
             }
             catch (Exception ex)
@@ -219,7 +219,7 @@ namespace UGTLive
                                         {
                                             string appDirectory = AppDomain.CurrentDomain.BaseDirectory;
                                             string debugFilePath = System.IO.Path.Combine(appDirectory, "chatgpt_translation_debug.txt");
-                                            System.IO.File.WriteAllText(debugFilePath, translatedText);
+                                            System.IO.File.WriteAllText(debugFilePath, translatedText, System.Text.Encoding.UTF8);
                                             Console.WriteLine($"Debug translation saved to {debugFilePath}");
                                         }
                                         catch (Exception ex)

@@ -309,7 +309,7 @@ namespace UGTLive
                             // For debugging, we'll still save the response to a file
                             try
                             {
-                                System.IO.File.WriteAllText("last_ocr_response.json", jsonData);
+                                System.IO.File.WriteAllText("last_ocr_response.json", jsonData, System.Text.Encoding.UTF8);
                             }
                             catch (Exception) { /* Ignore file saving errors */ }
                             

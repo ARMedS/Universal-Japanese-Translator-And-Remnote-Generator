@@ -141,6 +141,7 @@ namespace UGTLive
         private void ZoomInButton_Click(object sender, RoutedEventArgs e)
         {
             InteractiveTextDisplay.FontSize += 2;
+            FlashcardOutputDisplay.FontSize += 2;
         }
 
         private void ZoomOutButton_Click(object sender, RoutedEventArgs e)
@@ -148,6 +149,10 @@ namespace UGTLive
             if (InteractiveTextDisplay.FontSize > 4)
             {
                 InteractiveTextDisplay.FontSize -= 2;
+            }
+            if (FlashcardOutputDisplay.FontSize > 4)
+            {
+                FlashcardOutputDisplay.FontSize -= 2;
             }
         }
 

@@ -112,6 +112,7 @@ namespace UGTLive
             {
                 if (_instance == null)
                 {
+                    Console.WriteLine("[KanjiLoad] Creating ConfigManager instance (calling LoadConfig).");
                     _instance = new ConfigManager();
                 }
                 return _instance;
@@ -175,10 +176,18 @@ namespace UGTLive
         {
             try
             {
-                string kanjiDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "kanji-deconstructed", "components-kc.csv");
+                string kanjiDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "components-kc.csv");
+                Console.WriteLine($"[KanjiLoad] Attempting to load Kanji data from: {kanjiDataPath}");
+
                 if (File.Exists(kanjiDataPath))
                 {
-                    string[] csvLines = File.ReadAllLines(kanjiDataPath);
+                    string[] csvLines = File.ReadAllLines(kanjiDataPath, System.Text.Encoding.UTF8);
+                    Console.WriteLine($"[KanjiLoad] Found {csvLines.Length} lines in the CSV file.");
+                    if (csvLines.Length > 0)
+                    {
+                        Console.WriteLine($"[KanjiLoad] First line of CSV: {csvLines[0]}");
+                    }
+
                     foreach (string line in csvLines)
                     {
                         if (!string.IsNullOrWhiteSpace(line))
@@ -218,10 +227,36 @@ namespace UGTLive
                     {
                         Console.WriteLine($"Debug: 屈 radicals = {string.Join(", ", _kanjiToRadicals["屈"])}");
                     }
+                    if (_kanjiToRadicals.ContainsKey("族"))
+                    {
+                        Console.WriteLine($"Debug: 族 radicals = {string.Join(", ", _kanjiToRadicals["族"])}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Debug: 族 NOT FOUND in dictionary!");
+                    }
+
+                    if (_kanjiToRadicals.ContainsKey("苦"))
+                    {
+                        Console.WriteLine($"Debug: 苦 radicals = {string.Join(", ", _kanjiToRadicals["苦"])}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Debug: 苦 NOT FOUND in dictionary!");
+                    }
+
+                    if (_kanjiToRadicals.ContainsKey("手"))
+                    {
+                        Console.WriteLine($"Debug: 手 radicals = {string.Join(", ", _kanjiToRadicals["手"])}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Debug: 手 NOT FOUND in dictionary!");
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("Kanji data file not found.");
+                    Console.WriteLine($"[KanjiLoad] Kanji data file not found at the specified path: {kanjiDataPath}");
                 }
             }
             catch (Exception ex)
@@ -260,7 +295,7 @@ namespace UGTLive
                 else
                 {
                     // Read all content from the config file
-                    string content = File.ReadAllText(_configFilePath);
+                    string content = File.ReadAllText(_configFilePath, System.Text.Encoding.UTF8);
                     
                     // First, process multiline values with tags
                     ProcessMultilineValues(content);
@@ -487,7 +522,7 @@ namespace UGTLive
                 }
                 
                 // Write to file
-                File.WriteAllText(_configFilePath, sb.ToString());
+                File.WriteAllText(_configFilePath, sb.ToString(), System.Text.Encoding.UTF8);
                 
                 Console.WriteLine($"Saved config to {_configFilePath}");
             }
@@ -687,7 +722,7 @@ namespace UGTLive
                 if (!File.Exists(_geminiConfigFilePath))
                 {
                     string geminiContent = $"<llm_prompt_multi_start>\n{defaultGeminiPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_geminiConfigFilePath, geminiContent);
+                    File.WriteAllText(_geminiConfigFilePath, geminiContent, System.Text.Encoding.UTF8);
                     Console.WriteLine("Created default Gemini config file");
                 }
                 
@@ -695,7 +730,7 @@ namespace UGTLive
                 if (!File.Exists(_ollamaConfigFilePath))
                 {
                     string ollamaContent = $"<llm_prompt_multi_start>\n{defaultOllamaPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_ollamaConfigFilePath, ollamaContent);
+                    File.WriteAllText(_ollamaConfigFilePath, ollamaContent, System.Text.Encoding.UTF8);
                     Console.WriteLine("Created default Ollama config file");
                 }
                 
@@ -703,7 +738,7 @@ namespace UGTLive
                 if (!File.Exists(_chatgptConfigFilePath))
                 {
                     string chatgptContent = $"<llm_prompt_multi_start>\n{defaultChatGptPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_chatgptConfigFilePath, chatgptContent);
+                    File.WriteAllText(_chatgptConfigFilePath, chatgptContent, System.Text.Encoding.UTF8);
                     Console.WriteLine("Created default ChatGPT config file");
                 }
 
@@ -711,7 +746,7 @@ namespace UGTLive
                 if (!File.Exists(_openRouterConfigFilePath))
                 {
                     string openRouterContent = $"<llm_prompt_multi_start>\n{defaultOpenRouterPrompt}\n<llm_prompt_multi_end>";
-                    File.WriteAllText(_openRouterConfigFilePath, openRouterContent);
+                    File.WriteAllText(_openRouterConfigFilePath, openRouterContent, System.Text.Encoding.UTF8);
                     Console.WriteLine("Created default OpenRouter config file");
                 }
 
@@ -737,7 +772,7 @@ namespace UGTLive
                 Console.WriteLine($"[FlashcardPrompt] Attempting to read from: {_flashcardPromptFilePath}");
                 if (File.Exists(_flashcardPromptFilePath))
                 {
-                    string content = File.ReadAllText(_flashcardPromptFilePath);
+                    string content = File.ReadAllText(_flashcardPromptFilePath, System.Text.Encoding.UTF8);
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         Console.WriteLine($"[FlashcardPrompt] Successfully loaded custom prompt ({content.Length} chars)");
@@ -754,7 +789,7 @@ namespace UGTLive
                 }
 
                 string defaultPrompt = GetDefaultFlashcardPrompt();
-                File.WriteAllText(_flashcardPromptFilePath, defaultPrompt);
+                File.WriteAllText(_flashcardPromptFilePath, defaultPrompt, System.Text.Encoding.UTF8);
                 Console.WriteLine($"[FlashcardPrompt] Created default prompt file ({defaultPrompt.Length} chars)");
                 return defaultPrompt;
             }
@@ -772,7 +807,7 @@ namespace UGTLive
             {
                 if (File.Exists(_flashcardPromptFilePath))
                 {
-                    string content = File.ReadAllText(_flashcardPromptFilePath);
+                    string content = File.ReadAllText(_flashcardPromptFilePath, System.Text.Encoding.UTF8);
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         Console.WriteLine($"[FlashcardPrompt] Loaded default prompt from file ({content.Length} chars)");
@@ -809,13 +844,13 @@ namespace UGTLive
                     Console.WriteLine($"[FlashcardPrompt] Created directory: {directory}");
                 }
 
-                File.WriteAllText(_flashcardPromptFilePath, prompt.Trim());
+                File.WriteAllText(_flashcardPromptFilePath, prompt.Trim(), System.Text.Encoding.UTF8);
                 Console.WriteLine($"[FlashcardPrompt] Successfully saved prompt ({prompt.Length} chars) to {_flashcardPromptFilePath}");
 
                 // Verify the file was actually written
                 if (File.Exists(_flashcardPromptFilePath))
                 {
-                    string verifyContent = File.ReadAllText(_flashcardPromptFilePath);
+                    string verifyContent = File.ReadAllText(_flashcardPromptFilePath, System.Text.Encoding.UTF8);
                     if (verifyContent.Trim() == prompt.Trim())
                     {
                         Console.WriteLine("[FlashcardPrompt] File verification successful");
@@ -885,7 +920,7 @@ namespace UGTLive
             {
                 if (File.Exists(filePath))
                 {
-                    string content = File.ReadAllText(filePath);
+                    string content = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
                     
                     // Extract prompt text using regex
                     string pattern = @"<llm_prompt_multi_start>(.*?)<llm_prompt_multi_end>";
@@ -940,7 +975,7 @@ namespace UGTLive
             try
             {
                 string content = $"<llm_prompt_multi_start>\n{prompt}\n<llm_prompt_multi_end>";
-                File.WriteAllText(filePath, content);
+                File.WriteAllText(filePath, content, System.Text.Encoding.UTF8);
                 Console.WriteLine($"Saved {service} prompt ({prompt.Length} chars)");
                 return true;
             }

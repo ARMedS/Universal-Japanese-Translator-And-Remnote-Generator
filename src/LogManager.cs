@@ -64,7 +64,7 @@ namespace UGTLive
                 }
                 
                 // Write to file
-                File.WriteAllText(_ocrResponsePath, jsonData);
+                File.WriteAllText(_ocrResponsePath, jsonData, System.Text.Encoding.UTF8);
                 //Console.WriteLine($"OCR response logged to {_ocrResponsePath}");
             }
             catch (Exception ex)
@@ -103,7 +103,7 @@ namespace UGTLive
                 }
                 
                 // Write to file
-                File.WriteAllText(_llmRequestPath, sb.ToString());
+                File.WriteAllText(_llmRequestPath, sb.ToString(), System.Text.Encoding.UTF8);
                 Console.WriteLine($"LLM request logged to {_llmRequestPath}");
             }
             catch (Exception ex)
@@ -134,7 +134,7 @@ namespace UGTLive
                 }
                 
                 // Write to file
-                File.WriteAllText(_llmReplyPath, jsonResponse);
+                File.WriteAllText(_llmReplyPath, jsonResponse, System.Text.Encoding.UTF8);
                 Console.WriteLine($"LLM reply logged to {_llmReplyPath}");
             }
             catch (Exception ex)

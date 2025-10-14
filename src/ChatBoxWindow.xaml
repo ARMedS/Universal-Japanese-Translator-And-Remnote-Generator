@@ -43,7 +43,7 @@
                                  Background="Transparent"
                                  Foreground="White"
                                  BorderThickness="0"
-                                 FontSize="66"
+                                 FontSize="44"
                                  FontFamily="Yu Gothic UI"
                                  Padding="10">
                         <FlowDocument>
@@ -60,7 +60,7 @@
                              Background="#80000000"
                              Foreground="White"
                              BorderThickness="0"
-                             FontSize="28"
+                             FontSize="18"
                              FontFamily="Yu Gothic UI"
                              Padding="10"
                              AcceptsReturn="True"

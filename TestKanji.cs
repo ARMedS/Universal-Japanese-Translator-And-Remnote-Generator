@@ -8,11 +8,24 @@ class TestKanji
     static void Main()
     {
         var kanjiToRadicals = new Dictionary<string, List<string>>();
-        string kanjiDataPath = Path.Combine("kanji-deconstructed", "components-kc.csv");
+        string kanjiDataPath = Path.Combine(Directory.GetCurrentDirectory(), "components-kc.csv");
+        Console.WriteLine($"[TestKanji] Looking for CSV at: {kanjiDataPath}");
+        if (File.Exists(kanjiDataPath))
+        {
+            Console.WriteLine("[TestKanji] CSV found.");
+            string[] csvLines = File.ReadAllLines(kanjiDataPath, System.Text.Encoding.UTF8);
+            Console.WriteLine($"[TestKanji] Read {csvLines.Length} lines.");
+            // ... (rest unchanged, but add sample print if needed)
+        }
+        else
+        {
+            Console.WriteLine("[TestKanji] CSV not found!");
+            return;
+        }
 
         if (File.Exists(kanjiDataPath))
         {
-            string[] csvLines = File.ReadAllLines(kanjiDataPath);
+            string[] csvLines = File.ReadAllLines(kanjiDataPath, System.Text.Encoding.UTF8);
             foreach (string line in csvLines)
             {
                 if (!string.IsNullOrWhiteSpace(line))

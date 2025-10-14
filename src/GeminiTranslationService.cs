@@ -89,7 +89,7 @@ namespace UGTLive
                             }
                             
                             // Write error to file
-                            System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {detailedError}\n\nResponse code: {response.StatusCode}\nFull response: {errorMessage}");
+                            System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {detailedError}\n\nResponse code: {response.StatusCode}\nFull response: {errorMessage}", System.Text.Encoding.UTF8);
                             
                             // Show error message to user
                             System.Windows.Application.Current.Dispatcher.Invoke(() => {
@@ -109,7 +109,7 @@ namespace UGTLive
                     }
                     
                     // Write error to file
-                    System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {response.StatusCode}\n\nFull response: {errorMessage}");
+                    System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {response.StatusCode}\n\nFull response: {errorMessage}", System.Text.Encoding.UTF8);
                     
                     // Show general error if JSON parsing failed
                     System.Windows.Application.Current.Dispatcher.Invoke(() => {
@@ -128,7 +128,7 @@ namespace UGTLive
                 Console.WriteLine($"Translation API error: {ex.Message}");
                 
                 // Write error to file
-                System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {ex.Message}\n\nStack trace: {ex.StackTrace}");
+                System.IO.File.WriteAllText("gemini_last_error.txt", $"Gemini API error: {ex.Message}\n\nStack trace: {ex.StackTrace}", System.Text.Encoding.UTF8);
                 
                 // Show error message to user
                 System.Windows.Application.Current.Dispatcher.Invoke(() => {

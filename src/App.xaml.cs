@@ -40,6 +40,21 @@ public partial class App : Application
         {
             _mainWindow?.Show();
             
+            // Restore visibility of other windows
+            // Default to TRUE for MonitorWindow if no setting exists (backwards compatibility)
+            if (ConfigManager.Instance.LoadWindowVisibility("MonitorWindow", true))
+            {
+                MonitorWindow.Instance.Show();
+            }
+            
+            if (ConfigManager.Instance.LoadWindowVisibility("SettingsWindow", false))
+            {
+                SettingsWindow.Instance.Show();
+            }
+
+            // ChatBoxWindow visibility is handled in MainWindow.xaml.cs, 
+            // but we ensure it's loaded here if needed.
+            
             // Attach key handler to other windows once main window is shown
             AttachKeyHandlersToAllWindows();
         };

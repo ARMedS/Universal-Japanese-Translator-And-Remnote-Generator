@@ -13,7 +13,7 @@ namespace UGTLive
         private static readonly HttpClient client = new HttpClient();
         private const string API_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
 
-        public async Task<string?> TranslateAsync(string text, string prompt)
+        public async Task<string?> TranslateAsync(string text, string prompt, string model)
         {
             string? apiKey = ConfigManager.Instance.GetOpenRouterApiKey();
             if (string.IsNullOrEmpty(apiKey))
@@ -34,7 +34,7 @@ namespace UGTLive
                 // Text-only request
                 requestBody = new
                 {
-                    model = ConfigManager.Instance.GetOpenRouterModel(),
+                    model = model,
                     messages = new object[]
                     {
                         new { role = "system", content = new object[]{ new { type = "text", text = "You are a helpful assistant." } } },
@@ -48,7 +48,7 @@ namespace UGTLive
                 string base64Image = text;
                 requestBody = new
                 {
-                    model = ConfigManager.Instance.GetOpenRouterModel(),
+                    model = model,
                     messages = new object[]
                     {
                         new { role = "system", content = new object[]{ new { type = "text", text = prompt } } },
@@ -105,6 +105,12 @@ namespace UGTLive
                 Console.WriteLine($"Exception during OpenRouter API call: {ex.Message}");
                 return null;
             }
+        }
+
+        public async Task<string?> TranslateAsync(string text, string prompt)
+        {
+            string model = ConfigManager.Instance.GetOpenRouterModel();
+            return await TranslateAsync(text, prompt, model);
         }
     }
 }

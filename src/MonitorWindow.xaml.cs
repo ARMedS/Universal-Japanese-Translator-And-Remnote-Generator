@@ -77,7 +77,19 @@ namespace UGTLive
             // Register application-wide keyboard shortcut handler
             this.PreviewKeyDown += Application_KeyDown;
 
+            LoadWindowPlacement();
+
             Console.WriteLine("MonitorWindow constructor completed");
+        }
+
+        private void LoadWindowPlacement()
+        {
+            var (top, left, height, width) = ConfigManager.Instance.LoadWindowPlacement(
+                this.GetType().Name, this.Top, this.Left, this.Height, this.Width);
+            this.Top = top;
+            this.Left = left;
+            this.Height = height;
+            this.Width = width;
         }
 
         private void OnSocketConnectionChanged(object? sender, bool isConnected)
@@ -778,7 +790,7 @@ namespace UGTLive
         {
             e.Cancel = true;  // Cancel the close
             Hide();           // Hide the window instead
-            Console.WriteLine("Monitor window closing operation converted to hide");
+            Console.WriteLine("Monitor window hidden");
         }
         
        

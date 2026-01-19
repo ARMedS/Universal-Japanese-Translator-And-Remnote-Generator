@@ -63,7 +63,6 @@ namespace UGTLive
         public void SetOCRCheckIsWanted(bool bCaptureIsWanted) { _bOCRCheckIsWanted = bCaptureIsWanted; }
         public bool GetOCRCheckIsWanted() { return _bOCRCheckIsWanted; }
         private bool isStarted = false;
-        private DispatcherTimer _captureTimer;
         private string outputPath = DEFAULT_OUTPUT_PATH;
         private WindowInteropHelper helper;
         private System.Drawing.Rectangle captureRect;
@@ -201,7 +200,6 @@ namespace UGTLive
                     // Ensure we're connected when switching to EasyOCR
                     if (!SocketManager.Instance.IsConnected)
                     {
-                        Console.WriteLine("Socket not connected when switching to EasyOCR");
                         _ = Task.Run(async () => {
                             try {
                                 bool reconnected = await SocketManager.Instance.TryReconnectAsync();
@@ -213,7 +211,7 @@ namespace UGTLive
                                 }
 
                                 
-                            }
+                            } 
                             catch (Exception ex) {
                                 Console.WriteLine($"Error reconnecting: {ex.Message}");
                                 
@@ -295,6 +293,18 @@ namespace UGTLive
             
             // Set up global keyboard hook to handle shortcuts even when console has focus
             KeyboardShortcuts.InitializeGlobalHook();
+
+            LoadWindowPlacement();
+        }
+
+        private void LoadWindowPlacement()
+        {
+            var (top, left, height, width) = ConfigManager.Instance.LoadWindowPlacement(
+                this.GetType().Name, this.Top, this.Left, this.Height, this.Width);
+            this.Top = top;
+            this.Left = left;
+            this.Height = height;
+            this.Width = width;
         }
        
         // add method for show/hide the main window
@@ -373,44 +383,69 @@ namespace UGTLive
             // Set OCR method in this window (MainWindow)
             SetOcrMethod(savedOcrMethod);
             
-            // Make sure ChatBox window is shown on startup to the right of the main window
-            if (!ChatBoxWindow.Instance.IsVisible)
+            // Handle ChatBox visibility restoration
+            // DEFAULT TO TRUE on first run (if no setting exists)
+            bool shouldShowChatBox = ConfigManager.Instance.LoadWindowVisibility("ChatBoxWindow", true);
+
+            // Attach event handlers for proper state management (do this always)
+            chatBoxWindow = ChatBoxWindow.Instance;
+            if (!_chatBoxEventsAttached && chatBoxWindow != null)
             {
-                // Position to the right of the main window, only for initial startup
-                PositionChatBoxWindowToTheRight();
-                ChatBoxWindow.Instance.Show();
-
-                // Consider this the initial position for the chatbox window toggle
-                chatBoxWindowLeft = ChatBoxWindow.Instance.Left;
-                chatBoxWindowTop = ChatBoxWindow.Instance.Top;
-
-                // Attach event handlers for proper state management
-                chatBoxWindow = ChatBoxWindow.Instance;
-                if (!_chatBoxEventsAttached && chatBoxWindow != null)
+                // Subscribe to Closed
+                chatBoxWindow.Closed += (s, e) =>
                 {
-                    // Subscribe to both Closed and IsVisibleChanged events
-                    chatBoxWindow.Closed += (s, e) =>
+                    isChatBoxVisible = false;
+                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                };
+
+                // Also handle visibility changes
+                chatBoxWindow.IsVisibleChanged += (s, e) =>
+                {
+                    bool isNowVisible = (bool)e.NewValue;
+                    isChatBoxVisible = isNowVisible;
+                    
+                    if (isNowVisible)
                     {
-                        isChatBoxVisible = false;
+                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+                    }
+                    else
+                    {
                         chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
-                    };
+                    }
+                    
+                    // Save visibility IMMEDIATELY when it changes via user action/toggle
+                    ConfigManager.Instance.SaveWindowVisibility("ChatBoxWindow", isNowVisible);
+                };
 
-                    // Also handle visibility changes for when the X button is clicked (which now hides instead of closes)
-                    chatBoxWindow.IsVisibleChanged += (s, e) =>
-                    {
-                        if (!(bool)e.NewValue) // Window is now hidden
-                        {
-                            isChatBoxVisible = false;
-                            chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
-                        }
-                    };
+                _chatBoxEventsAttached = true;
+            }
 
-                    _chatBoxEventsAttached = true;
+            if (shouldShowChatBox && chatBoxWindow != null)
+            {
+                // Check if we have a saved position
+                var placement = ConfigManager.Instance.LoadWindowPlacement("ChatBoxWindow", -10000, -10000, -1, -1);
+                if (placement.Left != -10000)
+                {
+                    chatBoxWindow.Left = placement.Left;
+                    chatBoxWindow.Top = placement.Top;
+                    chatBoxWindow.Width = placement.Width;
+                    chatBoxWindow.Height = placement.Height;
+                    Console.WriteLine($"Restoring chatbox to saved position: {placement.Left}, {placement.Top}");
                 }
-
-                // Update state and button color since the chatbox is now active
+                else 
+                {
+                    PositionChatBoxWindowToTheRight();
+                    Console.WriteLine("No saved position for chatbox, positioning to the right");
+                }
+                
+                chatBoxWindow.Show();
                 isChatBoxVisible = true;
                 chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+            }
+            else
+            {
+                isChatBoxVisible = false;
+                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
             }
             
             // Test configuration loading
@@ -475,10 +510,7 @@ namespace UGTLive
             // Retrieve the handle using WindowInteropHelper
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             IntPtr hwnd = helper.Handle;
-            if (hwnd == IntPtr.Zero)
-            {
-                return;
-            }
+            if (hwnd == IntPtr.Zero) return;
 
             // Get our window position including the entire window (client + custom chrome)
             RECT windowRect;
@@ -611,6 +643,56 @@ namespace UGTLive
             }
         }
 
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            // Save state for all windows
+            SaveAllWindowStates();
+            base.OnClosing(e);
+        }
+
+        private void SaveAllWindowStates()
+        {
+            try
+            {
+                // Main Window
+                if (this.WindowState == WindowState.Normal)
+                {
+                    ConfigManager.Instance.SaveWindowPlacement("MainWindow", this.Top, this.Left, this.Height, this.Width);
+                }
+                ConfigManager.Instance.SaveWindowVisibility("MainWindow", this.IsVisible);
+
+                // ChatBox Window - Instance is always available
+                var chatBox = ChatBoxWindow.Instance;
+                if (chatBox != null)
+                {
+                    ConfigManager.Instance.SaveWindowPlacement("ChatBoxWindow", chatBox.Top, chatBox.Left, chatBox.Height, chatBox.Width);
+                    ConfigManager.Instance.SaveWindowVisibility("ChatBoxWindow", isChatBoxVisible); // Use our tracked state
+                }
+
+                // Monitor Window
+                var monitor = MonitorWindow.Instance;
+                if (monitor != null)
+                {
+                    ConfigManager.Instance.SaveWindowPlacement("MonitorWindow", monitor.Top, monitor.Left, monitor.Height, monitor.Width);
+                    ConfigManager.Instance.SaveWindowVisibility("MonitorWindow", monitor.IsVisible);
+                }
+
+                // Settings Window
+                var settings = SettingsWindow.Instance;
+                if (settings != null)
+                {
+                    ConfigManager.Instance.SaveWindowPlacement("SettingsWindow", settings.Top, settings.Left, settings.Height, settings.Width);
+                    ConfigManager.Instance.SaveWindowVisibility("SettingsWindow", settings.IsVisible);
+                }
+                
+                Console.WriteLine("All window positions and visibility saved centrally");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during centralized window saving: {ex.Message}");
+            }
+        }
+
         protected override void OnClosed(EventArgs e)
         {
             // Remove global keyboard hook
@@ -639,9 +721,7 @@ namespace UGTLive
             ToggleSettingsWindow();
         }
         
-        // Remember the settings window position
-        private double settingsWindowLeft = -1;
-        private double settingsWindowTop = -1;
+
         
         // Show/hide the settings window
         private void ToggleSettingsWindow()
@@ -649,13 +729,10 @@ namespace UGTLive
             // Check if settings window is visible
             if (SettingsWindow.Instance.IsVisible)
             {
-                // Store current position before hiding
-                settingsWindowLeft = SettingsWindow.Instance.Left;
-                settingsWindowTop = SettingsWindow.Instance.Top;
-                
-                Console.WriteLine($"Saving settings position: {settingsWindowLeft}, {settingsWindowTop}");
-                
                 SettingsWindow.Instance.Hide();
+                // Save visibility state immediately
+                ConfigManager.Instance.SaveWindowVisibility("SettingsWindow", false);
+                
                 // Re-enable global shortcuts now that the Settings window is hidden
                 KeyboardShortcuts.SetShortcutsEnabled(true);
                 Console.WriteLine("Settings window hidden");
@@ -663,15 +740,10 @@ namespace UGTLive
             }
             else
             {
-                // Always use the remembered position if it has been set
-                if (settingsWindowLeft != -1 || settingsWindowTop != -1)
-                {
-                    // Restore previous position
-                    SettingsWindow.Instance.Left = settingsWindowLeft;
-                    SettingsWindow.Instance.Top = settingsWindowTop;
-                    Console.WriteLine($"Restoring settings position to: {settingsWindowLeft}, {settingsWindowTop}");
-                }
-                else
+                // The SettingsWindow already loads its placement in its constructor.
+                // But if it's the very first time (no saved position), we can position it to the right.
+                var placement = ConfigManager.Instance.LoadWindowPlacement("SettingsWindow", -10000, -10000, -1, -1);
+                if (placement.Left == -10000)
                 {
                     // Position to the right of the main window for first run
                     double mainRight = this.Left + this.ActualWidth;
@@ -683,6 +755,9 @@ namespace UGTLive
                 }
                 
                 SettingsWindow.Instance.Show();
+                // Save visibility state immediately
+                ConfigManager.Instance.SaveWindowVisibility("SettingsWindow", true);
+                
                 // Disable shortcuts while the Settings window is active so we can type normally
                 KeyboardShortcuts.SetShortcutsEnabled(false);
                 Console.WriteLine($"Settings window shown at position {SettingsWindow.Instance.Left}, {SettingsWindow.Instance.Top}");
@@ -1048,10 +1123,6 @@ namespace UGTLive
         // Remember the monitor window position
         private double monitorWindowLeft = -1;
         private double monitorWindowTop = -1;
-
-        // Remember the chatbox window position
-        private double chatBoxWindowLeft = -1;
-        private double chatBoxWindowTop = -1;
         
         // Show/hide the monitor window
         private void ToggleMonitorWindow()
@@ -1065,6 +1136,9 @@ namespace UGTLive
                 Console.WriteLine($"Saving monitor position: {monitorWindowLeft}, {monitorWindowTop}");
                 
                 MonitorWindow.Instance.Hide();
+                // Save visibility state immediately
+                ConfigManager.Instance.SaveWindowVisibility("MonitorWindow", false);
+                
                 Console.WriteLine("Monitor window hidden from MainWindow toggle");
                 monitorButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
             }
@@ -1088,6 +1162,9 @@ namespace UGTLive
                 }
                 
                 MonitorWindow.Instance.Show();
+                // Save visibility state immediately
+                ConfigManager.Instance.SaveWindowVisibility("MonitorWindow", true);
+                
                 Console.WriteLine($"Monitor window shown at position {MonitorWindow.Instance.Left}, {MonitorWindow.Instance.Top}");
                 monitorButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
                 
@@ -1127,38 +1204,51 @@ namespace UGTLive
                 return;
             }
             
-            // ChatBoxWindow.Instance is always available, but may not be visible
-            // Make sure our chatBoxWindow reference is up to date
+            // ChatBoxWindow.Instance is always available
             chatBoxWindow = ChatBoxWindow.Instance;
             
             if (isChatBoxVisible && chatBoxWindow != null)
             {
                 // Hide ChatBox
                 chatBoxWindow.Hide();
-                isChatBoxVisible = false;
-                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
-                
-                // Don't set chatBoxWindow to null here - we're just hiding it, not closing it
             }
-            else
+            else if (chatBoxWindow != null)
             {
-                // Show selector to allow user to position ChatBox
-                ChatBoxSelectorWindow selectorWindow = ChatBoxSelectorWindow.GetInstance();
-                selectorWindow.SelectionComplete += ChatBoxSelector_SelectionComplete;
-                selectorWindow.Closed += (s, e) => 
-                {
-                    isSelectingChatBoxArea = false;
-                    // Only set button to blue if the ChatBox isn't visible (was cancelled)
-                    if (!isChatBoxVisible || chatBoxWindow == null || !chatBoxWindow.IsVisible)
-                    {
-                        chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
-                    }
-                };
-                selectorWindow.Show();
+                // We want to show it. Check if we already have a saved position.
+                var placement = ConfigManager.Instance.LoadWindowPlacement("ChatBoxWindow", -10000, -10000, -1, -1);
                 
-                // Set button to red while selector is active
-                isSelectingChatBoxArea = true;
-                chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+                if (placement.Left != -10000)
+                {
+                    // Restore position and just show it
+                    chatBoxWindow.Left = placement.Left;
+                    chatBoxWindow.Top = placement.Top;
+                    chatBoxWindow.Width = placement.Width;
+                    chatBoxWindow.Height = placement.Height;
+                    
+                    chatBoxWindow.Show();
+                    Console.WriteLine("ChatBox shown at saved position");
+                }
+                else
+                {
+                    // No saved position, show selector to allow user to position ChatBox
+                    ChatBoxSelectorWindow selectorWindow = ChatBoxSelectorWindow.GetInstance();
+                    selectorWindow.SelectionComplete += ChatBoxSelector_SelectionComplete;
+                    selectorWindow.Closed += (s, e) => 
+                    {
+                        isSelectingChatBoxArea = false;
+                        // Only set button to blue if the ChatBox isn't visible (was cancelled)
+                        if (!isChatBoxVisible || chatBoxWindow == null || !chatBoxWindow.IsVisible)
+                        {
+                            chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(69, 105, 176)); // Blue
+                        }
+                    };
+                    selectorWindow.Show();
+                    
+                    // Set button to red while selector is active
+                    isSelectingChatBoxArea = true;
+                    chatBoxButton.Background = new SolidColorBrush(Color.FromRgb(176, 69, 69)); // Red
+                    Console.WriteLine("ChatBox selector shown (no saved position)");
+                }
             }
         }
         
@@ -1261,9 +1351,6 @@ namespace UGTLive
             }
         }
 
-        private bool isListening = false;
-        private OpenAIRealtimeAudioServiceWhisper? openAIRealtimeAudioService = null;
-
         private string systemPrompt = ""; // Field to store the system prompt
 
         public string GetSystemPrompt() { return systemPrompt; }
@@ -1291,76 +1378,5 @@ namespace UGTLive
                 MessageBox.Show($"Error loading or creating prompt.txt: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
-        /*
-        private void ListenButton_Click(object sender, RoutedEventArgs e)
-        {
-            var btn = (System.Windows.Controls.Button)sender;
-            if (isListening)
-            {
-                isListening = false;
-                btn.Content = "Listen";
-                btn.Background = new SolidColorBrush(Color.FromRgb(69, 119, 176)); // Blue
-                openAIRealtimeAudioService?.Stop();
-            }
-            else
-            {
-                isListening = true;
-                btn.Content = "Stop Listening";
-                btn.Background = new SolidColorBrush(Color.FromRgb(220, 0, 0)); // Red
-
-                // Show a message if ChatBox isn't visible
-                var chatBoxWin = ChatBoxWindow.Instance;
-                if (chatBoxWin == null || !chatBoxWin.IsVisible)
-                {
-                    MessageBox.Show(this, "The Listen button listens for audio and shows the detected dialog in the chatbox. Please open the chatbox window to see the detected dialog.", "ChatBox Not Visible", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-
-                if (openAIRealtimeAudioService == null)
-                    openAIRealtimeAudioService = new OpenAIRealtimeAudioServiceWhisper();
-                
-                // Start the realtime audio service using loopback capture to record system audio
-                // **** MODIFIED: Pass new callbacks ****
-                openAIRealtimeAudioService.StartRealtimeAudioService(
-                    OnOpenAITranscriptReceived_Initial, 
-                    OnOpenAITranslationUpdate_WithId, 
-                    false); 
-            }
-        }
-
-        // **** MODIFIED: Renamed, now returns ID ****
-        private string OnOpenAITranscriptReceived_Initial(string text, string initialTranslation)
-        {
-            const string audioPrefix = "🎤 ";
-            string idToReturn = string.Empty;
-            Dispatcher.Invoke(() =>
-            {
-                // Add translation/history with audio icon prefix for easy identification in ChatBox
-                string originalWithIcon = string.IsNullOrWhiteSpace(text) ? string.Empty : audioPrefix + text;
-                string translatedWithIcon = string.IsNullOrWhiteSpace(initialTranslation) ? string.Empty : audioPrefix + initialTranslation;
-                // **** Call modified method that returns ID ****
-                idToReturn = AddTranslationToHistory(originalWithIcon, translatedWithIcon);
-            });
-            return idToReturn; // Return the ID
-        }
-        
-        // **** NEW: Callback to handle translation updates via ID ****
-        private void OnOpenAITranslationUpdate_WithId(string lineId, string originalText, string translatedText)
-        {
-            if (string.IsNullOrEmpty(lineId))
-            {
-                Console.WriteLine("OnOpenAITranslationUpdate_WithId called with empty lineId.");
-                return; // Can't update if no ID
-            }
-
-            const string audioPrefix = "🎤 ";
-            Dispatcher.Invoke(() =>
-            {
-                string translatedWithIcon = string.IsNullOrWhiteSpace(translatedText) ? string.Empty : audioPrefix + translatedText;
-                // Call new method to update the specific entry
-                UpdateTranslationInHistory(lineId, translatedWithIcon);
-            });
-        }
-        */
     }
 }

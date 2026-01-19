@@ -23,7 +23,6 @@ namespace UGTLive
         private readonly string _openRouterConfigFilePath; // Added for OpenRouter
         private readonly string _flashcardPromptFilePath;
         private readonly Dictionary<string, string> _configValues;
-        private readonly Dictionary<string, List<string>> _kanjiToRadicals;
         private string _currentTranslationService = "OpenRouter"; // Default to OpenRouter
 
         // Config keys
@@ -31,6 +30,7 @@ namespace UGTLive
         public const string OPENROUTER_API_KEY = "openrouter_api_key"; // Added for OpenRouter
         public const string GEMINI_MODEL = "gemini_model";
         public const string OPENROUTER_MODEL = "openrouter_model";
+        public const string OPENROUTER_FLASHCARD_MODEL = "openrouter_flashcard_model";
         public const string TRANSLATION_SERVICE = "translation_service";
         public const string OCR_METHOD = "ocr_method";
         public const string OLLAMA_URL = "ollama_url";
@@ -79,6 +79,13 @@ namespace UGTLive
         public const string CHATBOX_BACKGROUND_COLOR = "chatbox_background_color";
         public const string CHATBOX_BACKGROUND_OPACITY = "chatbox_background_opacity";
         public const string CHATBOX_WINDOW_OPACITY = "chatbox_window_opacity";
+
+        // Window Position Memory keys
+        public const string WINDOW_POS_LEFT = "window_pos_left";
+        public const string WINDOW_POS_TOP = "window_pos_top";
+        public const string WINDOW_POS_WIDTH = "window_pos_width";
+        public const string WINDOW_POS_HEIGHT = "window_pos_height";
+        
         public const string CHATBOX_LINES_OF_HISTORY = "chatbox_lines_of_history";
         public const string CHATBOX_OPACITY = "chatbox_opacity";
         public const string CHATBOX_MIN_TEXT_SIZE = "chatbox_min_text_size";
@@ -133,8 +140,6 @@ namespace UGTLive
             _googleTranslateConfigFilePath = Path.Combine(appDirectory, "google_translate_config.txt");
             _openRouterConfigFilePath = Path.Combine(appDirectory, "openrouter_config.txt"); // Added for OpenRouter
             _flashcardPromptFilePath = Path.Combine(appDirectory, "flashcard_prompt.txt");
-            
-            _kanjiToRadicals = new Dictionary<string, List<string>>();
 
             Console.WriteLine($"Config file path: {_configFilePath}");
             Console.WriteLine($"Gemini config file path: {_geminiConfigFilePath}");
@@ -145,7 +150,6 @@ namespace UGTLive
             
             // Load main config values
             LoadConfig();
-            LoadKanjiData();
             
             // Load translation service from config
             if (_configValues.TryGetValue(TRANSLATION_SERVICE, out string? service))
@@ -172,108 +176,6 @@ namespace UGTLive
             EnsureServiceConfigFilesExist();
         }
 
-        private void LoadKanjiData()
-        {
-            try
-            {
-                string kanjiDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "components-kc.csv");
-                Console.WriteLine($"[KanjiLoad] Attempting to load Kanji data from: {kanjiDataPath}");
-
-                if (File.Exists(kanjiDataPath))
-                {
-                    string[] csvLines = File.ReadAllLines(kanjiDataPath, System.Text.Encoding.UTF8);
-                    Console.WriteLine($"[KanjiLoad] Found {csvLines.Length} lines in the CSV file.");
-                    if (csvLines.Length > 0)
-                    {
-                        Console.WriteLine($"[KanjiLoad] First line of CSV: {csvLines[0]}");
-                    }
-
-                    foreach (string line in csvLines)
-                    {
-                        if (!string.IsNullOrWhiteSpace(line))
-                        {
-                            string[] parts = line.Split(',');
-                            if (parts.Length >= 2)
-                            {
-                                string kanji = parts[0].Trim();
-                                var radicals = new List<string>();
-                                for (int i = 1; i < parts.Length; i++)
-                                {
-                                    string radical = parts[i].Trim();
-                                    if (!string.IsNullOrEmpty(radical))
-                                    {
-                                        radicals.Add(radical);
-                                    }
-                                }
-                                if (!string.IsNullOrEmpty(kanji) && radicals.Any())
-                                {
-                                    _kanjiToRadicals[kanji] = radicals;
-                                }
-                            }
-                        }
-                    }
-                    Console.WriteLine($"Successfully loaded and parsed Kanji data. Loaded {_kanjiToRadicals.Count} kanji entries.");
-
-                    // Debug: Test a few known kanji
-                    if (_kanjiToRadicals.ContainsKey("丸"))
-                    {
-                        Console.WriteLine($"Debug: 丸 radicals = {string.Join(", ", _kanjiToRadicals["丸"])}");
-                    }
-                    if (_kanjiToRadicals.ContainsKey("及"))
-                    {
-                        Console.WriteLine($"Debug: 及 radicals = {string.Join(", ", _kanjiToRadicals["及"])}");
-                    }
-                    if (_kanjiToRadicals.ContainsKey("屈"))
-                    {
-                        Console.WriteLine($"Debug: 屈 radicals = {string.Join(", ", _kanjiToRadicals["屈"])}");
-                    }
-                    if (_kanjiToRadicals.ContainsKey("族"))
-                    {
-                        Console.WriteLine($"Debug: 族 radicals = {string.Join(", ", _kanjiToRadicals["族"])}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Debug: 族 NOT FOUND in dictionary!");
-                    }
-
-                    if (_kanjiToRadicals.ContainsKey("苦"))
-                    {
-                        Console.WriteLine($"Debug: 苦 radicals = {string.Join(", ", _kanjiToRadicals["苦"])}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Debug: 苦 NOT FOUND in dictionary!");
-                    }
-
-                    if (_kanjiToRadicals.ContainsKey("手"))
-                    {
-                        Console.WriteLine($"Debug: 手 radicals = {string.Join(", ", _kanjiToRadicals["手"])}");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Debug: 手 NOT FOUND in dictionary!");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"[KanjiLoad] Kanji data file not found at the specified path: {kanjiDataPath}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading Kanji data: {ex.Message}");
-            }
-        }
-
-        public List<string> GetKanjiRadicals(string kanji)
-        {
-            if (_kanjiToRadicals.TryGetValue(kanji, out var radicals))
-            {
-                return radicals;
-            }
-            return new List<string>();
-        }
-
         // Get a boolean configuration value
         public bool GetBoolValue(string key, bool defaultValue = false)
         {
@@ -281,6 +183,57 @@ namespace UGTLive
             return value.ToLower() == "true";
         }
 
+        public float GetFloatValue(string key, float defaultValue = 0.0f)
+        {
+            string value = GetValue(key, defaultValue.ToString());
+            if (float.TryParse(value, out float result))
+            {
+                return result;
+            }
+            return defaultValue;
+        }
+
+        // Get window position/size values
+        public double GetWindowPosLeft(double defaultValue = 0)
+        {
+            return GetFloatValue(WINDOW_POS_LEFT, (float)defaultValue);
+        }
+        
+        public void SetWindowPosLeft(double value)
+        {
+            SetValue(WINDOW_POS_LEFT, value.ToString());
+        }
+
+        public double GetWindowPosTop(double defaultValue = 0)
+        {
+            return GetFloatValue(WINDOW_POS_TOP, (float)defaultValue);
+        }
+        
+        public void SetWindowPosTop(double value)
+        {
+            SetValue(WINDOW_POS_TOP, value.ToString());
+        }
+
+        public double GetWindowPosWidth(double defaultValue = 800)
+        {
+            return GetFloatValue(WINDOW_POS_WIDTH, (float)defaultValue);
+        }
+        
+        public void SetWindowPosWidth(double value)
+        {
+            SetValue(WINDOW_POS_WIDTH, value.ToString());
+        }
+
+        public double GetWindowPosHeight(double defaultValue = 600)
+        {
+            return GetFloatValue(WINDOW_POS_HEIGHT, (float)defaultValue);
+        }
+        
+        public void SetWindowPosHeight(double value)
+        {
+            SetValue(WINDOW_POS_HEIGHT, value.ToString());
+        }
+        
         // Load configuration from file
         private void LoadConfig()
         {
@@ -352,6 +305,7 @@ namespace UGTLive
             _configValues[GEMINI_API_KEY] = "<your API key here>";
             _configValues[OPENROUTER_API_KEY] = "<your API key here>";
             _configValues[OPENROUTER_MODEL] = "google/gemini-2.5-flash-preview-09-2025";
+            _configValues[OPENROUTER_FLASHCARD_MODEL] = "google/gemini-2.5-flash-preview-09-2025";
             _configValues[AUTO_SIZE_TEXT_BLOCKS] = "true";
             _configValues[CHATBOX_FONT_FAMILY] = "Segoe UI";
             _configValues[CHATBOX_FONT_SIZE] = "15";
@@ -599,6 +553,22 @@ namespace UGTLive
                 _configValues[OPENROUTER_MODEL] = model;
                 SaveConfig();
                 Console.WriteLine($"OpenRouter model set to: {model}");
+            }
+        }
+
+        // Get/Set OpenRouter Flashcard Model
+        public string GetOpenRouterFlashcardModel()
+        {
+            return GetValue(OPENROUTER_FLASHCARD_MODEL, "google/gemini-2.5-flash-preview-09-2025");
+        }
+
+        public void SetOpenRouterFlashcardModel(string model)
+        {
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                _configValues[OPENROUTER_FLASHCARD_MODEL] = model;
+                SaveConfig();
+                Console.WriteLine($"OpenRouter flashcard model set to: {model}");
             }
         }
         
@@ -1935,6 +1905,38 @@ namespace UGTLive
             {
                 Console.WriteLine($"Invalid OpenAI silence duration: {duration}. Must be non-negative.");
             }
+        }
+
+        // Window Placement Settings
+        public void SaveWindowPlacement(string windowName, double top, double left, double height, double width)
+        {
+            SetValue($"{windowName}_Top", top.ToString());
+            SetValue($"{windowName}_Left", left.ToString());
+            SetValue($"{windowName}_Height", height.ToString());
+            SetValue($"{windowName}_Width", width.ToString());
+            SaveConfig();
+        }
+
+        public (double Top, double Left, double Height, double Width) LoadWindowPlacement(string windowName, double defaultTop, double defaultLeft, double defaultHeight, double defaultWidth)
+        {
+            double top = double.TryParse(GetValue($"{windowName}_Top"), out var t) ? t : defaultTop;
+            double left = double.TryParse(GetValue($"{windowName}_Left"), out var l) ? l : defaultLeft;
+            double height = double.TryParse(GetValue($"{windowName}_Height"), out var h) ? h : defaultHeight;
+            double width = double.TryParse(GetValue($"{windowName}_Width"), out var w) ? w : defaultWidth;
+            return (top, left, height, width);
+        }
+
+        public void SaveWindowVisibility(string windowName, bool isVisible)
+        {
+            SetValue($"{windowName}_Visible", isVisible.ToString().ToLower());
+            SaveConfig();
+        }
+
+        public bool LoadWindowVisibility(string windowName, bool defaultValue = false)
+        {
+            string val = GetValue($"{windowName}_Visible");
+            if (string.IsNullOrEmpty(val)) return defaultValue;
+            return val.ToLower() == "true";
         }
     }
 }

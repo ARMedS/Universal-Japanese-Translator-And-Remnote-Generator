@@ -17,6 +17,17 @@ namespace UGTLive
             InitializeComponent();
             Instance = this;
             this.DataContext = this;
+            LoadWindowPlacement();
+        }
+
+        private void LoadWindowPlacement()
+        {
+            var (top, left, height, width) = ConfigManager.Instance.LoadWindowPlacement(
+                this.GetType().Name, this.Top, this.Left, this.Height, this.Width);
+            this.Top = top;
+            this.Left = left;
+            this.Height = height;
+            this.Width = width;
         }
 
         private enum DisplayState
@@ -169,11 +180,34 @@ namespace UGTLive
             this.Hide();
         }
 
+        private async void ExportButton_Click(object sender, RoutedEventArgs e)
+        {
+            TextRange textRange = new TextRange(
+                FlashcardOutputDisplay.Document.ContentStart,
+                FlashcardOutputDisplay.Document.ContentEnd
+            );
+
+            System.Windows.Clipboard.SetText(textRange.Text);
+
+            // Visual feedback
+            var originalContent = ExportButton.Content;
+            var originalBackground = ExportButton.Background;
+
+            ExportButton.Content = "Copied!";
+            ExportButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(50, 200, 50)); // Light green
+
+            await System.Threading.Tasks.Task.Delay(1500);
+
+            ExportButton.Content = originalContent;
+            ExportButton.Background = originalBackground;
+        }
+
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             // Prevent the window from being disposed
             e.Cancel = true;
             this.Visibility = Visibility.Hidden;
+            Console.WriteLine("ChatBox window hidden");
         }
     }
 }

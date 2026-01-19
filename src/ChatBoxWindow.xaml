@@ -31,6 +31,7 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Content="-" Width="25" Height="25" Background="#CC3232E6" Foreground="White" FontWeight="Bold" Click="ZoomOutButton_Click"/>
                             <Button Content="+" Width="25" Height="25" Background="#CC3232E6" Foreground="White" FontWeight="Bold" Click="ZoomInButton_Click"/>
+                            <Button x:Name="ExportButton" Content="Export" Width="50" Height="25" Background="#CC32E632" Foreground="White" FontWeight="Bold" Click="ExportButton_Click"/>
                             <Button Content="X" Width="25" Height="25" Background="#CCE63232" Foreground="White" FontWeight="Bold" Click="CloseButton_Click"/>
                         </StackPanel>
                     </Grid>

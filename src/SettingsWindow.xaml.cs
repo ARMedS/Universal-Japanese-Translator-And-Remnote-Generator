@@ -59,6 +59,8 @@ namespace UGTLive
             // Add Loaded event handler to ensure controls are initialized
             this.Loaded += SettingsWindow_Loaded;
             
+            LoadWindowPlacement();
+            
             // Disable shortcuts while this window has focus so we can type freely
             this.Activated += (s, e) => KeyboardShortcuts.SetShortcutsEnabled(false);
             // Re-enable when focus leaves (but not yet hidden)
@@ -71,6 +73,7 @@ namespace UGTLive
                 this.Hide();      // Just hide the window
                 // Re-enable shortcuts when settings window is hidden
                 KeyboardShortcuts.SetShortcutsEnabled(true);
+                Console.WriteLine("Settings window hidden");
             };
         }
         
@@ -776,7 +779,8 @@ namespace UGTLive
                     googleTranslateServiceTypeLabel == null || googleTranslateServiceTypeComboBox == null ||
                     googleTranslateMappingLabel == null || googleTranslateMappingCheckBox == null ||
                     openRouterApiKeyLabel == null || openRouterApiKeyGrid == null ||
-                    openRouterModelLabel == null || openRouterModelGrid == null)
+                    openRouterModelLabel == null || openRouterModelGrid == null ||
+                    openRouterFlashcardModelLabel == null || openRouterFlashcardModelGrid == null)
                 {
                     Console.WriteLine("UI elements not initialized yet. Skipping visibility update.");
                     return;
@@ -787,6 +791,8 @@ namespace UGTLive
                 openRouterApiKeyGrid.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
                 openRouterModelLabel.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
                 openRouterModelGrid.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                openRouterFlashcardModelLabel.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
+                openRouterFlashcardModelGrid.Visibility = isOpenRouterSelected ? Visibility.Visible : Visibility.Collapsed;
 
                 // Show/hide Gemini-specific settings
                 geminiApiKeyLabel.Visibility = isGeminiSelected ? Visibility.Visible : Visibility.Collapsed;
@@ -848,6 +854,22 @@ namespace UGTLive
                     if (!found)
                     {
                         openRouterModelComboBox.Text = openRouterModel;
+                    }
+
+                    string openRouterFlashcardModel = ConfigManager.Instance.GetOpenRouterFlashcardModel();
+                    found = false;
+                    foreach (ComboBoxItem item in openRouterFlashcardModelComboBox.Items)
+                    {
+                        if (string.Equals(item.Content?.ToString(), openRouterFlashcardModel, StringComparison.OrdinalIgnoreCase))
+                        {
+                            openRouterFlashcardModelComboBox.SelectedItem = item;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        openRouterFlashcardModelComboBox.Text = openRouterFlashcardModel;
                     }
                 }
                 else if (isGeminiSelected)
@@ -1149,6 +1171,40 @@ namespace UGTLive
         private void ViewOpenRouterModelsButton_Click(object sender, RoutedEventArgs e)
         {
             OpenUrl("https://openrouter.ai/models");
+        }
+
+        private void OpenRouterFlashcardModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing) return;
+                if (openRouterFlashcardModelComboBox.SelectedItem is ComboBoxItem selectedItem)
+                {
+                    string model = selectedItem.Content?.ToString() ?? "";
+                    ConfigManager.Instance.SetOpenRouterFlashcardModel(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenRouter flashcard model: {ex.Message}");
+            }
+        }
+
+        private void OpenRouterFlashcardModelComboBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (_isInitializing) return;
+                string model = openRouterFlashcardModelComboBox.Text?.Trim() ?? "";
+                if (!string.IsNullOrWhiteSpace(model))
+                {
+                    ConfigManager.Instance.SetOpenRouterFlashcardModel(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating OpenRouter flashcard model from text input: {ex.Message}");
+            }
         }
         
         private void GeminiModelComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1822,6 +1878,15 @@ namespace UGTLive
                 // If invalid, reset to current value from config
                 maxSettleTimeTextBox.Text = ConfigManager.Instance.GetBlockDetectionMaxSettleTime().ToString("F2");
             }
+        }
+        private void LoadWindowPlacement()
+        {
+            var (top, left, height, width) = ConfigManager.Instance.LoadWindowPlacement(
+                this.GetType().Name, this.Top, this.Left, this.Height, this.Width);
+            this.Top = top;
+            this.Left = left;
+            this.Height = height;
+            this.Width = width;
         }
     }
 }

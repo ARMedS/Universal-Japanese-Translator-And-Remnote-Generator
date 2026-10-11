@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Raise Japanese Translator (KDE)
+Comment=Bring the capture frame over the game
+Exec=/home/idofront/IDOFRONT/01_Active_Projects/Universal-Japanese-Translator-And-Remnote-Generator/linux-kde/run.sh --raise
+Icon=/home/idofront/IDOFRONT/01_Active_Projects/Universal-Japanese-Translator-And-Remnote-Generator/media/Icon1.ico
+Terminal=false
+NoDisplay=true
+Categories=Utility;Education;

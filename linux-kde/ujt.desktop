@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Japanese Translator (KDE)
+Comment=Visual-novel translator and RemNote flashcards (Plasma edition)
+Exec=/home/idofront/IDOFRONT/01_Active_Projects/Universal-Japanese-Translator-And-Remnote-Generator/linux-kde/run.sh
+Icon=/home/idofront/IDOFRONT/01_Active_Projects/Universal-Japanese-Translator-And-Remnote-Generator/media/Icon1.ico
+Terminal=false
+Categories=Utility;Education;
+StartupWMClass=ujt-kde

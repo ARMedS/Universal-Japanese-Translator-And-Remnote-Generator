@@ -1,0 +1,3 @@
+# PyQt6 and numpy come from system packages via --system-site-packages.
+requests>=2.31.0
+numpy>=1.24.0

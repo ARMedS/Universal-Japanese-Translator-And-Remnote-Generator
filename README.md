@@ -9,6 +9,17 @@ step. Flashcard generation is retained and integrated with the new LLM-based out
 (listen/transcription) have been completely removed to streamline for visual translation only. 
 
 
+## Linux (KDE Plasma) edition
+
+A Python rewrite for Linux lives in [`linux-kde/`](linux-kde/README.md): a quiet,
+click-through capture frame that sends what is inside it to a vision model and
+gives you clickable words and RemNote flashcards.
+
+![Capture frame over a visual novel](media/kde-capture-frame.png)
+
+See [`linux-kde/README.md`](linux-kde/README.md) for how it works, setup and usage.
+
+
 Tips:
 
 • Use vision-capable models (e.g., google/gemini-2.5-flash-preview via OpenRouter) 

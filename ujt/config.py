@@ -9,9 +9,8 @@ import stat
 from pathlib import Path
 from typing import Any
 
-LINUX_ROOT = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = LINUX_ROOT.parent
-BUNDLED_PROMPTS = LINUX_ROOT / "prompts"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+BUNDLED_PROMPTS = PROJECT_ROOT / "prompts"
 KANJI_CSV = PROJECT_ROOT / "components-kc.csv"
 ICON_PATH = PROJECT_ROOT / "media" / "Icon1.ico"
 

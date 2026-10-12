@@ -8,7 +8,7 @@ see-through frame over the text you want to read. One key press sends what is
 inside it to a vision-capable AI model, and you get back the Japanese split into
 clickable words with meanings, plus flashcards on demand.
 
-![The capture frame over a visual novel](../media/kde-capture-frame.png)
+![The capture frame over a visual novel](media/kde-capture-frame.png)
 
 ## What you get
 
@@ -25,7 +25,7 @@ clickable words with meanings, plus flashcards on demand.
   area is translated the same way.
 - **Easy to diagnose.** A rotating log file, a Log window and a Copy-all button.
 
-![The Reader window: clickable words and a flashcard](../media/kde-reader.png)
+![The Reader window: clickable words and a flashcard](media/kde-reader.png)
 
 It is a Python + PyQt6 rewrite of the original Windows app.
 
@@ -66,7 +66,6 @@ for checking that the frame is lined up.
 ## Install and run
 
 ```bash
-cd linux-kde
 chmod +x run.sh
 ./run.sh
 ```
@@ -79,7 +78,9 @@ either way:
   (`keys.env.example` shows the format; keep it out of the repository).
   `~/.config/ujt/keys.env` is also read, so a key from another edition works.
 
-Running `./run.sh` again while the app is open just brings its windows forward.
+Run `./install-launchers.sh` once to add **Japanese Translator** to the Super (application)
+menu for one-click launching. Re-run it if you ever move this folder. Running the app
+again while it is open just brings its windows forward.
 
 ## Using it
 
@@ -114,7 +115,7 @@ corner. The Reader's **+ / −** change the text size.
 
 ### Optional global shortcuts
 
-`./install-plasma-shortcuts.sh` registers two Plasma shortcuts, which work even
+`./install-launchers.sh --shortcuts` registers two Plasma shortcuts, which work even
 while a game has focus:
 
 | Shortcut | Action |

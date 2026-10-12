@@ -41,11 +41,11 @@ want them, ready-made [RemNote](https://www.remnote.com) flashcards.
 It is a Linux app for **KDE Plasma on X11**. Full instructions, the button-by-button
 guide, keyboard shortcuts and troubleshooting are in the guide:
 
-**[Read the guide](linux-kde/README.md)**
+**[Read the guide](GUIDE.md)**
 
 ```bash
-cd linux-kde
-./run.sh
+./run.sh                # first run builds a .venv
+./install-launchers.sh   # adds "Japanese Translator" to the Super menu
 ```
 
 Add your OpenRouter key in Settings and you are ready.
@@ -55,8 +55,8 @@ Add your OpenRouter key in Settings and you are ready.
 This project began as a modified version of Seth Robinson's
 [UGTLive](https://github.com/sethrobinson/ugtlive) for Windows: real-time game
 translation, changed to send images straight to vision LLMs instead of using OCR and
-with flashcard generation added. That WPF/C# app is still in this repository's
-history and files (`src/`), but the Linux KDE edition above is the actively developed one.
+with flashcard generation added. That WPF/C# app is no longer in the working tree (it remains in the git history);
+the Linux KDE edition above is the actively developed one.
 
 ## License and credits
 

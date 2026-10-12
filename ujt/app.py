@@ -113,7 +113,10 @@ class TranslatorApp(QApplication):
 
     def log(self, message: str, status: bool = False) -> None:
         """Log window + log file + stdout. `status=True` also shows it on the frame."""
-        print(message, flush=True)
+        try:
+            print(message, flush=True)
+        except OSError:
+            pass  # stdout closed (launched from a menu or a dead pipe); the log file still has it
         diag.logger.info(message)
         self.log_win.append(message)
         if status:

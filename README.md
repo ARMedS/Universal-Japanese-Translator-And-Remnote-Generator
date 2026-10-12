@@ -1,3 +1,7 @@
+> **This is the `windows-legacy` branch: the original Windows (WPF/C#) app.**
+> It still works but does not have the features of the Linux KDE edition on `main`.
+> Build it with Visual Studio or `BuildAndRun.bat` (see `src/`).
+
 # Universal Japanese Translator and RemNote Generator
 
 **Read Japanese games and visual novels as you play, and turn what you meet into flashcards, without leaving the game.**

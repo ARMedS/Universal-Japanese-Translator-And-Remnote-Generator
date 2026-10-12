@@ -1,22 +1,33 @@
 # Japanese Translator, KDE Plasma edition
 
-A quiet, always-on-top translator for Japanese games and visual novels on
-**Linux (KDE Plasma, X11)**. You place a see-through frame over the text you
-want to read. One key press sends what is inside it to a vision-capable AI
-model, and you get back the Japanese split into clickable words with meanings,
-plus RemNote-ready flashcards on demand.
+**Read Japanese games and visual novels as you play, and turn what you meet into
+RemNote flashcards, without leaving the game.**
+
+A quiet, always-on-top translator for **Linux (KDE Plasma, X11)**. You place a
+see-through frame over the text you want to read. One key press sends what is
+inside it to a vision-capable AI model, and you get back the Japanese split into
+clickable words with meanings, plus flashcards on demand.
 
 ![The capture frame over a visual novel](../media/kde-capture-frame.png)
 
-The frame is deliberately unobtrusive. Its inside is **click-through**, so you
-keep clicking the game's own buttons through it, and its border and toolbar can
-be faded down to almost nothing.
+## What you get
+
+- **A workflow in four steps:** frame the text, press Capture (Shift+S), read it as
+  clickable words in the Reader, and click words to build flashcards you export to RemNote.
+- **It stays out of the way.** The inside of the frame is *click-through*, so you
+  keep clicking the game's own buttons through it. The border and toolbar fade down
+  to almost nothing, and Hide leaves only a Capture button.
+- **No OCR or server to install.** Images go straight to a vision model through
+  [OpenRouter](https://openrouter.ai); you only need an API key.
+- **Fast and exact.** The capture takes about 15 ms and is pixel-exact on any monitor.
+  Capture and translation run in the background, so the interface never freezes.
+- **Snip anything.** Drag a box around any other part of the screen and just that
+  area is translated the same way.
+- **Easy to diagnose.** A rotating log file, a Log window and a Copy-all button.
 
 ![The Reader window: clickable words and a flashcard](../media/kde-reader.png)
 
-This is the Linux rewrite (Python + PyQt6) of the Windows app in the repository
-root. It sends images straight to an LLM through [OpenRouter](https://openrouter.ai),
-so there is no OCR engine or local server to install.
+It is a Python + PyQt6 rewrite of the original Windows app.
 
 ## How it works
 

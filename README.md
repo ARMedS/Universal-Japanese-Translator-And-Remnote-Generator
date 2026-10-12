@@ -1,47 +1,66 @@
-Universal Game Translator Live (UGTLive) - Modified Version 
+# Universal Japanese Translator and RemNote Generator
 
-This is a modified version of Seth Robinson's original UGTLive project (original:
-https://github.com/sethrobinson/ugtlive). The core focus remains real-time translation for visual novels and
-games, but major changes have been implemented to replace traditional OCR-based text extraction with direct API
-calls to visual Large Language Models (LLMs). This eliminates OCR dependencies (Windows OCR and EasyOCR Python
-server) and simplifies the workflow: images are sent directly to LLMs for text recognition and translation in one
-step. Flashcard generation is retained and integrated with the new LLM-based output. Audio processing features
-(listen/transcription) have been completely removed to streamline for visual translation only. 
+**Read Japanese games and visual novels as you play, and turn what you meet into flashcards, without leaving the game.**
 
+Put a see-through frame over the text you cannot read. Press one key. Seconds later
+you have the Japanese split into clickable words with their meanings, and, when you
+want them, ready-made [RemNote](https://www.remnote.com) flashcards.
 
-## Linux (KDE Plasma) edition
+![The capture frame sitting over a visual novel](media/kde-capture-frame.png)
 
-A Python rewrite for Linux lives in [`linux-kde/`](linux-kde/README.md): a quiet,
-click-through capture frame that sends what is inside it to a vision model and
-gives you clickable words and RemNote flashcards.
+![The Reader: clickable words, meanings and a generated flashcard](media/kde-reader.png)
 
-![Capture frame over a visual novel](media/kde-capture-frame.png)
+## What it does for you
 
-See [`linux-kde/README.md`](linux-kde/README.md) for how it works, setup and usage.
+1. **Frame the text.** Drag the frame over the dialogue box, a menu or a name plate.
+2. **Press Capture** (Shift+S). Only the area inside the frame is sent to a vision AI model.
+3. **Read.** The Reader shows the sentence as clickable words. Click a word for its
+   meaning, click again for the romaji.
+4. **Learn.** The first click on a word also writes a flashcard: meaning, kanji
+   breakdown with radicals, and a memory hook. **Export** copies them all for RemNote.
 
+## Why it is pleasant to use
 
-Tips:
+- **It stays out of the way.** The inside of the frame is *click-through*, so you keep
+  pressing the game's own buttons right through it. The border and the whole toolbar
+  fade down to almost invisible, and **Hide** leaves just a Capture button.
+- **No OCR to install.** Pictures go straight to a vision-capable model through
+  [OpenRouter](https://openrouter.ai), so there is no OCR engine, local server or
+  language pack to set up. Bring an API key and go.
+- **Fast and exact.** The capture takes about 15 ms and is pixel-exact on any monitor,
+  and the interface never freezes while the model thinks.
+- **Snip anything.** Drag a box around any other part of the screen, such as a button
+  off to one side, and just that area goes through the same translation flow.
+- **Learn as you read.** Flashcards come from the words you actually clicked, in the
+  context of the game you are playing.
+- **Easy to diagnose.** Everything it does is written to a rotating log file, with a
+  Log window and a Copy-all button.
 
-• Use vision-capable models (e.g., google/gemini-2.5-flash-preview via OpenRouter) 
+## Get started
 
-## Settings Window
+It is a Linux app for **KDE Plasma on X11**. Full instructions, the button-by-button
+guide, keyboard shortcuts and troubleshooting are in the guide:
 
-Opens at Height=1200, Width=500. Sections:
+**[Read the guide](linux-kde/README.md)**
 
-• Translation Service: Provider selection and API key. Defaults to OpenRouter.
-• Prompt Template: LLM instructions for visual translation.
-• Flashcard Generation: Template editing (e.g., for Anki JSON output).
-• Language: Source/target (swap button). Defaults: ja-en.
-• Context: Max sentences (3 default), min size (20 chars).
-• Block Detection: Scale (5.0), settle time (0.5s), max settle (1.0s).
-• ChatBox: Font, size, colors, history size. Minimum text size (2 chars).
+```bash
+cd linux-kde
+./run.sh
+```
 
-## License
+Add your OpenRouter key in Settings and you are ready.
 
-MIT License. See LICENSE.md /LICENSE.md.
+## The original Windows app
 
-## Credits
+This project began as a modified version of Seth Robinson's
+[UGTLive](https://github.com/sethrobinson/ugtlive) for Windows: real-time game
+translation, changed to send images straight to vision LLMs instead of using OCR and
+with flashcard generation added. That WPF/C# app is still in this repository's
+history and files (`src/`), but the Linux KDE edition above is the actively developed one.
 
-• Original creator: Seth Robinson (@sethrobinson on GitHub).
-• Modifications: Shift to API-driven visual LLM translation, flashcard focus, removal of local OCR/audio. Built
-upon Seth's foundation for streamlined visual novel support.
+## License and credits
+
+MIT License. See [LICENSE.md](LICENSE.md).
+
+- Original UGTLive creator: Seth A. Robinson ([@sethrobinson](https://github.com/sethrobinson)).
+- This fork: API-driven visual LLM translation, flashcard focus, and the Linux KDE rewrite.
